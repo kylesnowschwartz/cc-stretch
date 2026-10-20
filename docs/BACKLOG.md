@@ -33,6 +33,12 @@ Checkbox marks a lane consumed (plan written, or direct commit landed).
 - [ ] **unreported-outcomes** — a long form never states an outcome its evidence does not give · verdict: direct
 - [ ] **post-pass-stretcher** — a hook turns Claude's finished plain reply into stretchtext · verdict: pending · needs: a live check that a `turn.step` rewrite is shown and recorded
 - [ ] **opened-from-doc** — `openedFrom`'s comment in `bench/measure.ts` describes the note as 0.5.2 writes it · verdict: defer · promote when: the next change to `bench/measure.ts`
+- [ ] **label-short-forms** — a short form over several sections states their gist, not their topic · verdict: defer · signal: none · promote when: a change with a mechanism none of the six tried shares
+- [ ] **closing-gist-kept** — the closing stretch's short form is in the block it opens · verdict: pending · needs: what the reader sees when such a stretch opens
+- [ ] **managed-setup-limit** — the README says Team, Enterprise and managed setups never get the guide · verdict: direct
+- [ ] **desktop-first-request** — the guide reaches the desktop app's first request · verdict: pending · needs: whether the desktop app's `ui_attach` arrives before its first request
+- [ ] **long-session-drift** — a bench task shows whether Claude stops writing stretches deep in a long session · verdict: defer · signal: none · promote when: a second report of stretches stopping in a long session
+- [ ] **copy-on-select** — the plugin's selection copies when Claude Code's own would · verdict: pending · needs: a design call on whether a drag or double-click in a paragraph the plugin draws follows "Copy on select"
 
 ## plugin-folder
 
@@ -359,3 +365,76 @@ about the in-flow rate, so seeing the whole reply first is not by itself a fix. 
 `openedFrom`'s comment in `bench/measure.ts` describes the note's names as they were before 0.5.2,
 when a lone period was named `"."`; `bench/opened.ts` maps 0.5.2's names back. The file is part of a
 run's hashed asking code, so the comment changes with the next change made there for another reason.
+
+## label-short-forms
+
+A label short form only names what its long form holds ("What the note says.", "Install
+details."). Live replies put them on links that hide several sections or a list, most of them in
+one session whose replies relay another session's work. Measured on 2026-10-20 by replaying requests recorded
+in live sessions (Opus 5.5 at xhigh effort, Claude Code 2.1.301 to 2.1.304, `LABELS` judged by Sonnet
+and again by Opus), no change moved them:
+
+- `sections-gist` and `sections-within`: links on sections judged labels 9 of 13 and 10 of 16,
+  against 10 of 19 under `g0`.
+- `sections-open` and `sections-woven`, a worked example of a stretch over several sections: text
+  replies holding a label 62% and 68%, against 62% under `g0`, on 21 turns.
+- A rule appended to the per-prompt note: 10 of 23 links judged labels, against 12 of 27.
+- Naming the last reply's label short forms in the per-prompt note: 14 of 52 against 26 of 57 on
+  eight requests from two sessions, then, preregistered, 30 of 108 against 26 of 112 on 20 new
+  requests from 10 turns.
+
+The 24 tasks rarely produce such a link (3 in 216 replies), and rewriting finished replies does not
+either (9 in 22 replies, with the longest replies refused by the safety filter), so a restart needs
+the replay harness, which is not in the repo. Before relying on it:
+
+- Claude Code 2.1.304 refuses a `--settings` file over 2 MiB, and the rebuilt request travels in
+  one as `CLAUDE_CODE_EXTRA_BODY`, so a larger request cannot be replayed this way.
+- A request late in a turn is replayed with everything Claude did earlier in the turn kept as it
+  was, so a replay measures one edited request, not what shipping the change would do.
+- Every guide line tried roughly doubled tool requests in replays (10 to 18 and 21 of 36; 13 to 29
+  and 26 of 63); changes to the note did not (9 to 13 of 60). Replay a neutral line first, to see
+  whether any edit to the system prompt does it.
+
+## closing-gist-kept
+
+In 24 of 35 replies written under the shipped guide (replays of live requests, Opus 5.5, Claude
+Code 2.1.304), the reply's last stretch breaks keeps-short-words: its short form, such as "Status:
+Haiku run still going; /observe in a real session is next.", is not in the status block it opens.
+The guide asks for that short form to be "a one-line gist of the block" and for every long form to
+keep its short form's words. Not known: why the words go missing, and what the reader sees when
+such a stretch opens.
+
+## managed-setup-limit
+
+As of Claude Code 2.1.299 to 2.1.303, the built-in plugin `cc-plugin-sec-default` goes before every
+other plugin when the machine has managed settings or a managed MCP server file, or the account is
+on a Team or Enterprise plan, and skips the `prompt.compose` and `classic.*` hooks of plugins a
+person installed. cc-stretch adds its guide in `prompt.compose`, so Claude never writes a stretch
+there. A debug log in [#3](https://github.com/pro-vi/cc-stretch/issues/3) shows `prompt.compose
+bypassed by cc-plugin-sec-default (tier user)`, and `claude plugin validate .` warns that "only a
+plugin the organization lists in managed settings runs them". The README's Limits does not say so,
+and #3 has no reply naming the cause. Sending the guide another way, such as in the per-prompt note,
+would get around a security control on purpose, so it is not the fix.
+
+## desktop-first-request
+
+A report in [#3](https://github.com/pro-vi/cc-stretch/issues/3) guesses that the desktop app gets
+no guide because it has not connected by the first request. As of Claude Code 2.1.303, the guide
+hook sees the terminal and any remote app that has announced itself, and the desktop app announces
+itself with a `ui_attach` message; whether that arrives before the first request is not checked. In
+one desktop-app session on 2.1.295, all three long replies had stretches. A Team or Enterprise
+account would explain the report as well (`managed-setup-limit`).
+
+## long-session-drift
+
+A report in [#3](https://github.com/pro-vi/cc-stretch/issues/3) says that deep in a long session
+Claude stops writing stretches, from one or two runs per setup. The guide and the per-prompt note
+are unchanged since, and the note says nothing after a reply with no stretches. The 24 tasks each
+ask one fresh question, so they cannot show it.
+
+## copy-on-select
+
+A drag or double-click in a paragraph the plugin draws copies its text when the button comes up.
+With "Copy on select" off (`copyOnSelect: false`), Claude Code 2.1.303's own double-click copied
+nothing in a live run, so a double-click copies in a paragraph the plugin draws and not in the next.
+Not checked: the same with the setting on, and whether the plugin API exposes it.
