@@ -224,9 +224,11 @@ describe('tasks and guide variants', () => {
     for (const [name, added] of Object.entries(ADDED)) {
       const text = VARIANTS[name]
       if (text === undefined) throw new Error(`missing guide ${name}`)
-      const rows = text.split('\n')
-      expect([name, rows.filter(row => !GUIDE.split('\n').includes(row))]).toEqual([name, [...added]])
-      expect([name, rows.filter(row => !added.includes(row))]).toEqual([name, GUIDE.split('\n')])
+      // A declared line can be a block of rows, such as a bullet with a worked example: each sits whole
+      // in the variant, in reading order, and taking them out leaves the plugin guide.
+      const at = added.map(line => `\n${text}\n`.indexOf(`\n${line}\n`))
+      expect([name, at.every((i, k) => i !== -1 && i > (at[k - 1] ?? -1))]).toEqual([name, true])
+      expect([name, added.reduce((rest, line) => rest.replace(`\n${line}\n`, '\n'), `\n${text}\n`)]).toEqual([name, `\n${GUIDE}\n`])
     }
   })
 })

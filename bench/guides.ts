@@ -12,14 +12,19 @@ const FILLER = `- Keep the shortest reading to what the reader needs: the answer
 const LABEL = `- Each short form says something itself, the gist of its long form. A label for the long form, such as "Details." or "What changed.", is not a short form.`
 const TRUE = `- Every short form stays true without a click. A condition, doubt, limit or warning that changes what it claims, or what the reader should do next, stays in the short form itself: "the import probably finishes tonight" never shortens to "the import finishes tonight", nor "safe to rerun once the lock is released" to "safe to rerun".`
 const CLAIM = `- To find a short form, write the full sentence, then delete words until what is left is a grammatical claim with the same subject and outcome. A short form makes that claim ("The retry duplicates writes."); it never only announces its topic ("Retry details." or "There is a retry issue.").`
+const SECTIONS_FINDING = '- A stretch that holds several sections or a list gets a short form that states the main finding they support, with its source and any doubt.'
+
+/** Whether `text` holds `line`, one row or a block of rows, as whole rows. */
+const holds = (text: string, line: string) => `\n${text}\n`.includes(`\n${line}\n`)
 
 /**
- * `base` with `line` inserted after the bullet that starts with `anchor`, or `base` itself when it
- * already holds `line`: a line the plugin's guide took up keeps every variant that adds it the same.
+ * `base` with `line`, one row or a block of rows, inserted after the bullet that starts with
+ * `anchor`, or `base` itself when it already holds `line`: a line the plugin's guide took up keeps
+ * every variant that adds it the same.
  */
 function withLine(base: string, anchor: string, line: string): string {
   const rows = base.split('\n')
-  if (rows.includes(line)) return base
+  if (holds(base, line)) return base
   const at = rows.findIndex(row => row.startsWith(anchor))
   if (at === -1) throw new Error(`no bullet starts with ${anchor}`)
   return [...rows.slice(0, at + 1), line, ...rows.slice(at + 1)].join('\n')
@@ -72,6 +77,10 @@ const RECIPES: Readonly<Record<string, readonly (readonly [anchor: string, line:
   'sections-gist': [[AFTER_CLOSING, '- A stretch that hides several sections or a list needs a short form of the same kind: a one-line gist of what they say, never a line that only names them.']],
   /** Keep sections in view, as list items are, so no one stretch hides several. */
   'sections-within': [[LIST, '- Stretch within each section, never around several sections at once.']],
+  /** A stretch over several sections states their finding, and its long form opens with that same sentence. */
+  'sections-open': [[AFTER_LONG, `${SECTIONS_FINDING} Begin its long form with that same sentence unchanged, then give the sections. Example:\n  {{The note traces duplicate work to separate caches.|The note traces duplicate work to separate caches.\n\n  **Finding.** Both workers compute the same result.\n\n  **Cause.** Each worker keeps its own cache.}}`]],
+  /** sections-open, but the finding's words run through the sections in order, with words added before, between and after them, instead of opening the long form. */
+  'sections-woven': [[AFTER_LONG, `${SECTIONS_FINDING} Its words then run through the sections in order, with the rest added before, between and after them. Example:\n  {{The note traces the duplicate work to separate caches.|**Finding.** The review note traces the duplicate work both workers do: each computes the same result.\n\n  **Cause.** It comes down to separate caches, one per worker.}}`]],
 }
 
 const additions = Object.fromEntries(
@@ -146,5 +155,5 @@ Reading notes say which stretches were opened. Restate hidden information when a
 
 /** The lines each variant in RECIPES adds to g0, in reading order, for a test to hold it to them. */
 export const ADDED: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
-  Object.entries(RECIPES).map(([name, recipe]) => [name, recipe.map(([, line]) => line).filter(line => !GUIDE.split('\n').includes(line))]),
+  Object.entries(RECIPES).map(([name, recipe]) => [name, recipe.map(([, line]) => line).filter(line => !holds(GUIDE, line))]),
 )
