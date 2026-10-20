@@ -19,6 +19,20 @@ Checkbox marks a lane consumed (plan written, or direct commit landed).
 - [ ] **tinted-256** — the four tinted highlights stay four colours on a 256-colour terminal · verdict: defer · signal: none · promote when: a reader reports two tinted stretches in one colour
 - [ ] **tinted-neighbours** — stretches side by side on screen differ in tinted colour · verdict: pending · needs: a design call on whether neighbours on screen must differ
 - [ ] **open-colour-gap** — opened words are in their colour from their first frame · verdict: defer · signal: none · promote when: the gap shows in a recorded take
+- [ ] **wrap-across-styles** — a style change inside a word is never a place to break a row · verdict: direct · signal: a row that starts with `.` after a link, or a pressed word that moves a row on the first frame of opening · promote when: now; it breaks the promise that words on screen stay where they are
+- [ ] **refusal-as-answer** — a call the safety filter stopped counts as a failed call, never as an answer · verdict: direct · signal: an `ok` row whose text says it was "stopped by a safety classifier"
+- [ ] **lead-in-bold-sentence** — a bold sentence ends the words before a lone period, as a plain one does · verdict: direct
+- [ ] **nested-note-names** — the note names a lone period inside an opened long form by its words, not "." · verdict: direct
+- [ ] **dead-letter** — a stretch with nothing on screen to press takes no keyboard letter · verdict: direct
+- [ ] **growth-finishes** — a stretch still growing goes on growing when the reader opens or closes another · verdict: defer · signal: none · promote when: the jump shows in a recorded take, a reader reports it, or the growth code next changes
+- [ ] **posts-hold-opens** — the note names every stretch the reader opened, however close together two presses land · verdict: pending · needs: how far apart a click's press and release reach the terminal, a trackpad tap included
+- [ ] **desktop-lead-in** — in the desktop app, the words before a lone period open its stretch too · verdict: pending · needs: a look at the desktop app: what a drag or double-click that starts on link text does, and what `[](…)` draws
+- [ ] **nested-lead-in** — a lone period inside an opened long form has words to click · verdict: defer · signal: none · promote when: a reader reports a one-cell period in an opened detail
+- [ ] **reading-note-test** — a bench task shows whether Claude says again what the reader left closed, once the note tells it · verdict: defer · signal: none · promote when: a guide change touches the reading-note paragraph, or the note's wording changes
+- [ ] **fresh-held-out** — an adoption is decided on tasks no guide variant was shaped on · verdict: defer · signal: none · promote when: a variant is about to be adopted on task results read while shaping it
+- [ ] **unreported-outcomes** — a long form never states an outcome its evidence does not give · verdict: direct
+- [ ] **post-pass-stretcher** — a hook turns Claude's finished plain reply into stretchtext · verdict: pending · needs: a live check that a `turn.step` rewrite is shown and recorded
+- [ ] **opened-from-doc** — `openedFrom`'s comment in `bench/measure.ts` describes the note as 0.5.2 writes it · verdict: defer · promote when: the next change to `bench/measure.ts`
 
 ## plugin-folder
 
@@ -179,3 +193,169 @@ and after it opens; making neighbours on screen differ is weighed against that.
 - Promote when: the gap shows in a recorded take, or a reader reports it.
 - Fix shape: under tinted the colour is known before the press, so the Client can be given each
   stretch's word colours along with its highlight.
+
+## wrap-across-styles
+
+- Problem: `wrap` in `hooks/layout.ts` finds break points in each styled run on its own
+  (`for (const run of runs) for (const text of run.text.split(/( +)/).flatMap(breakables))`), and
+  `inline` starts a run at every style change, so a link, code span, URL or bold run that ends inside
+  a word can split it. `NO_START`, the rule that closing punctuation never starts a row, works only
+  inside one run, so the 0.3.5 changelog's "punctuation such as ， or 。 … never starts a row" fails at
+  a style change. The `Run.link` comment and the guards in `leadInsOf` that skip marking words
+  "because it would add a break" work around this.
+- Failure sequence: at 20 columns `It merged 3 days ago{{.|…}}` draws its `.` alone on the next row,
+  as 0.5.1 did; at 15, `**12**ms` splits into `12` and `ms`; at 10, `一二三四**五**。` starts a row
+  with `。`. While a stretch grows, `grow` draws its short form as plain text, so the style change
+  goes and the pressed word can move a row on the first frame: at 18 columns `Then run the tests` /
+  `.` becomes `Then run the` / `tests.`. Over the 3,572 saved paragraphs at every width from 40 to
+  120: 1,826 breaks inside a word (0.62% of layouts), 1,296 of them putting closing punctuation at a
+  row's start, and the first frame of opening moved rows in 47 of 33,306 checks.
+- Signal: none live; a kit test of the four cases above fails on 1de5f05.
+- Fix shape: find break points in the line's whole text, then split each piece back across the runs
+  it covers; a word wider than a row still breaks at its style changes, so `(https://…)` is not cut
+  mid-URL. A prototype of this (68 lines in, 23 out) passed all 198 tests and the four cases above,
+  changed rows only in layouts that had a break inside a word, moved no row on a first frame, and
+  took a layout from 61 µs to about 68 µs. Once it lands, the `leadInsOf` guards can be tried
+  without, to give more lone periods words to press.
+
+## refusal-as-answer
+
+- Problem: as of Claude Code 2.1.304, when the safety filter stops a reply, Claude Code tries once
+  more with a note saying so, and the model's answer to that note ("My previous response to this was
+  stopped by a safety classifier, so I can't …") comes back as a normal result. `resultOf` in
+  `bench/grading.ts` accepts it and the run writes `status: "ok"`, though `bench/README.md` says a
+  failed call never counts as a grade. A resume reuses the text instead of trying again.
+- Failure sequence: counted on 2026-10-20, 12 such `ok` rows in the rewrites of a label-slot corpus
+  run and 1 in the answers of a drafting run, that one graded with every `know` point "no".
+  On the corpus path the recall bar drops them as broken rewrites, not failed calls. In the
+  label-slot baseline the refused replies were the long ones (median 724 words, against 404–471 for
+  the rest), so that run's sample leans short.
+- Signal: an `ok` row whose text holds "stopped by a safety classifier".
+- Fix shape: in `claude()` in `bench/ab.ts`, which is not part of a run's hashed asking code, throw
+  when the result's events show a refusal stop, or, if they show none, when an `ok` text holds that
+  sentence; add a refusing case to `bench/stub/claude` and `bench/stub/check.ts`. Then delete the
+  refusal rows and resume, asking first in a folder another session is running.
+
+## lead-in-bold-sentence
+
+`leadInOf` in `hooks/layout.ts` takes a bold phrase whole only when no sentence ends inside it, but
+its check, `pieces.slice(start, k)`, leaves out the bold's last piece. So in
+`**Fix main's e2e first.** It unblocks #218{{.|…}}` both sentences open the stretch, where
+`I changed a.ts. The tests pass{{.|…}}` gives only the second. 1 of 3,572 saved paragraphs has
+it. Fix shape: stop at a bold phrase that ends a sentence once words after it are taken; pin
+`**Done.** The tests pass` to `The tests pass` and `**Done.**` alone to `**Done.**`.
+
+## nested-note-names
+
+`namesOf` in `hooks/layout.ts` names a link inside a link's long form by its bare short form, so
+when the reader opens the outer stretch and then a lone period inside it, the note to Claude still
+quotes `"."`, and the 0.5.2 changelog's "Before, every period link was called "."" does not hold
+there. 9 of the 90 lone-period links in saved paragraphs sit inside a long form, in 6 paragraphs.
+Fix shape: walk every long form that is drawn at all (`drawnAs(part) !== 'text'`) instead of the
+`stretches(…)` loop, and test that a nested `{{.|…}}` is named by the sentence before it. A stretch
+opened before an in-session upgrade then reads as unopened once.
+
+## dead-letter
+
+A stretch whose short form is empty, with no words before it (at a paragraph's start, or right
+after another stretch), draws nothing to press. `lettersFor` in `hooks/register.tsx` still gives it
+a letter, since `targetsIn` looks only at `drawnAs`: the letter is drawn nowhere, the next stretch
+takes the one after it, and typing the unseen one is swallowed. The test "a stretch with an empty
+short form and no words before it draws no link and opens from no letter" in
+`tests/cc-stretch.test.tsx` pins the swallowed key, so the fix changes that test on purpose. Rare:
+the saved replies hold 2 such stretches. Fix shape: leave out of `lettersFor` a target whose name
+from `namesOf` is empty.
+
+## growth-finishes
+
+- Problem: `hooks/reply.tsx` keeps one growth per paragraph (`State.growth`), and opening or closing
+  another stretch replaces it, so a stretch still growing shows the rest of its long form and its «
+  in one frame. The single growth dates from the first commit. Since 0.5.2 a click on lead-in words
+  opens about 0.5 s after the press, so two quick clicks on two such sentences overlap more often.
+- Failure sequence: in the test kit on 0.5.1 and 0.5.2, a 32-word long form 13 words in after
+  320 ms showed all 32 words one frame after a press on another short form. After two quick clicks on
+  lead-in words in 0.5.2, the first went from 20 to 27 words in one frame; opened alone, it never adds
+  more than 2.
+- Signal: none; no recorded take shows it yet.
+- Fix shape: a growth per key, each advanced on the tick and dropped when its stretch or one holding
+  it closes. A stretch still shrinking can stay closed at once, as now.
+
+## posts-hold-opens
+
+- Problem: as of Claude Code 2.1.304 a Client's post waits for a 16 ms timer, and a later post from
+  the same Client replaces one still waiting (read in the 2.1.304 binary; the API types written by
+  2.1.302 describe the same). `hooks/reply.tsx` posts the open list, which survives being replaced,
+  with `opened`, the one stretch just opened, which does not. When two opens in one paragraph post
+  within one flush, `seen` misses the first, so the note says the reader did not open it, and it gets
+  no colour count.
+- Failure sequence: in 0.5.2 a press after a click on lead-in words opens their stretch as the button
+  goes down, and a short form opens as it comes up; when that press and release land in one flush,
+  the first open is lost. A harness keeping only the last post per flush gave
+  `opened "The fix is one line.". They did not open "It merged 3 days ago."` with both drawn open.
+  The test kit delivers every post, so it cannot show this.
+- Signal: none live.
+- Fix shape: the Client posts state only, the name and source of each stretch in its open list; the
+  `ui.message` hook takes as just opened each key the stored list lacks.
+
+## desktop-lead-in
+
+As of 0.5.2 the desktop app draws a closed stretch with no words of its own as `[.](…/open/N)`, and
+an empty short form as `[](…/open/N)`, which by CommonMark draws nothing. `linkedMarkdown` in
+`hooks/register.tsx` never calls `withLeadIns`; only `compose` in `hooks/reply.tsx` does, though the
+note already names such a stretch by its lead-in words on both surfaces. A scratch copy that turned
+lead-in words into `[words](…/open/N)` passed all 198 tests. Not checked: what the desktop app does
+with a drag or double-click that starts on link text; the terminal waits out a double-click to keep
+selection working. Lone periods are 6 of 1,478 stretches in saved real-session replies.
+
+## nested-lead-in
+
+`compose` draws an opened long form with `grow`, which finds the short form's words in it word by
+word; a lead-in mark there would break that match, so a lone period inside an opened long form draws
+as one cell, as before 0.5.2: 9 of 90 lone-period links in saved paragraphs, 1 of them from a real
+session. Fix shape: give `grow` the lead-in spans and put the link marks around their visible words,
+or mark them only once growth ends. Either touches the code where 0.5.2's growth bug was, so rerun
+the corpus and fuzz checks that release used.
+
+## reading-note-test
+
+Every bench task is one `claude -p` call, so nothing checks that Claude acts on the guide's last
+paragraph: "Do not assume they read a long form they did not open; if it matters to what they asked,
+say it again." The tests check
+the note's text, never Claude's reply to it. Fix shape: a task with an earlier turn, its reply, what
+was opened, and a follow-up that needs a closed detail, with the note built by `hooks/register.tsx`'s
+code rather than retyped; arms `g0` and `g0` without that paragraph. It touches the hashed
+`bench/grading.ts`, so older run folders refuse to resume. About 36 writer and 108 judge calls.
+
+## fresh-held-out
+
+The four `heldOut` tasks in `bench/tasks.ts` were read while `shortened-growth`,
+`shortened-growth-words` and `shortened-growth-last-words` were shaped, as the criterion written for
+each of those runs says, and the report splits only the layout-rule table by `heldOut`. Fix shape: write
+four to six tasks before looking at any candidate's answers, keep them in a `--tasks` file run in
+their own folder once, at the adoption decision; adding them to `TASKS` would make every 24-task run
+folder refuse to resume.
+
+## unreported-outcomes
+
+`unreported-check` in `bench/tasks.ts` gives a check that ran with no result reported, and forbids
+"The CLI smoke run passed." In saved runs (Opus 5.5 writing, Sonnet 5.5 judging, Claude Code
+2.1.302) the judge found that claim in 8 of 9 `g0` replies, 7 of 12 under the shortened guides and
+0 of 3 under `draft-in-thinking`; no other task drew a forbidden claim. One task, found after the
+fact: a lead. Fix shape: four to six tasks where a check ran and its result is not given, two held
+out, the pass test written first; arms `g0`, `draft-in-thinking`, and one line saying what to write
+where the evidence is silent.
+
+## post-pass-stretcher
+
+Per the plugin API types written by Claude Code 2.1.302, a `turn.step` hook may rewrite a reply's
+text chunks, and what leaves it is both shown and recorded; it could hold the reply until the step
+ends, ask `$.model.complete` to add stretches with the guide as its system prompt, and yield that, at
+the cost of streaming and one more call per reply. Saved rewrites of plain replies under the shipped
+guide still hide sections behind links (14 links, 4 of them labels), and gave lone-period links at
+about the in-flow rate, so seeing the whole reply first is not by itself a fix. Not checked live.
+
+## opened-from-doc
+
+`openedFrom`'s comment in `bench/measure.ts` describes the note's names as they were before 0.5.2,
+when a lone period was named `"."`; `bench/opened.ts` maps 0.5.2's names back. The file is part of a
+run's hashed asking code, so the comment changes with the next change made there for another reason.
