@@ -5,7 +5,7 @@ Checkbox marks a lane consumed (plan written, or direct commit landed).
 
 ## Lanes
 
-- [ ] **plugin-folder** — an install copies the plugin, not the repo's dev tools · verdict: direct · waits on: the uncommitted changes to `bench/replay.ts` and `bench/labels.ts` landing or being dropped
+- [ ] **plugin-folder** — an install copies the plugin, not the repo's dev tools · verdict: direct
 - [ ] **renderers-use-drawn-as** — every renderer draws a stretch the way `drawnAs` says · verdict: direct
 - [ ] **keyboard-item-words** — the list rule finds the reply item by the words a reply uses for it · verdict: direct
 - [ ] **judge-controls** — a grading run whose judge misgrades a known answer is refused · verdict: direct
@@ -83,9 +83,6 @@ grades when the judge gets a control wrong.
 - `recall` and the rewrite prompt are in both `bench/ab.ts` and `bench/replay.ts`.
 - The code that turns verdicts into scores is in both `bench/report.ts` and `bench/coverage.ts`.
 - `bench/replay.ts` spells out the `claude -p` flags that `claudeArgs` in `bench/grading.ts` builds.
-- A `bench/labels.ts` left uncommitted in a checkout is superseded by `bench/ab.ts`, and its
-  `marked` is a different function from the one in `bench/measure.ts`. Delete it rather than commit
-  it.
 
 `replay.ts`, `report.ts` and `coverage.ts` feed the README's numbers, so change them when those
 numbers are rerun, and the numbers change once.
