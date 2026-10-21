@@ -39,6 +39,7 @@ Checkbox marks a lane consumed (plan written, or direct commit landed).
 - [ ] **desktop-first-request** — the guide reaches the desktop app's first request · verdict: pending · needs: whether the desktop app's `ui_attach` arrives before its first request
 - [ ] **long-session-drift** — a bench task shows whether Claude stops writing stretches deep in a long session · verdict: defer · signal: none · promote when: a second report of stretches stopping in a long session
 - [ ] **copy-on-select** — the plugin's selection copies when Claude Code's own would · verdict: pending · needs: a design call on whether a drag or double-click in a paragraph the plugin draws follows "Copy on select"
+- [ ] **windows-link-opener** — on Windows a ctrl- or alt-click on a link in a paragraph that holds a stretch opens it · verdict: pending · needs: a live session on Windows
 - [ ] **desktop-before-2.1.300** — the desktop app on a bundled Claude Code before 2.1.300 shows stretches with 0.5.3 · verdict: pending · needs: a look at the desktop app while it bundles 2.1.295 or 2.1.299
 
 ## plugin-folder
@@ -436,6 +437,13 @@ A drag or double-click in a paragraph the plugin draws copies its text when the 
 With "Copy on select" off (`copyOnSelect: false`), Claude Code 2.1.303's own double-click copied
 nothing in a live run, so a double-click copies in a paragraph the plugin draws and not in the next.
 Not checked: the same with the setting on, and whether the plugin API exposes it.
+
+## windows-link-opener
+
+On Windows the hooks module opens a link with `rundll32 url.dll,FileProtocolHandler <url>`, chosen
+when no `uname` starts or one names MinGW, MSYS or Cygwin
+([#18](https://github.com/pro-vi/cc-stretch/issues/18)). The tests answer `uname` themselves, and
+the live check runs on macOS, so neither the choice nor the command has run on Windows.
 
 ## desktop-before-2.1.300
 

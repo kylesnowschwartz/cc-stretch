@@ -118,7 +118,9 @@ never lose your place.
   paragraph without a stretch, except that the `#` of an id such as `#12806` stays in the word and
   any full stops after it stay out. In the words before a lone period, a double-click copies a word
   as well, so a single click there opens its stretch half a second later, once no second click
-  can follow.
+  can follow. A ctrl- or alt-click on an `http:` or `https:` link in such a paragraph opens it, as
+  Claude Code 2.1.304 does in a paragraph without a stretch; a cmd-click, where the terminal keeps
+  one, is the terminal's own.
 - Claude writes every level up front, so a reply costs about as many tokens as before. You read
   less; you don't pay less.
 - The `{{short|long}}` markup shows as raw text wherever the plugin isn't loaded.
@@ -127,8 +129,8 @@ never lose your place.
   with 2.1.292 to 2.1.294 in cc-stretch 0.1.0; in the Claude desktop app with 2.1.295 in cc-stretch
   0.2.0. Claude Code before 2.1.300, which the desktop app can still bundle, refused cc-stretch 0.4.0
   to 0.5.2 whole ([#17](https://github.com/pro-vi/cc-stretch/issues/17)); 0.5.3 loads in 2.1.293 and
-  2.1.295 again, but its clicks in the desktop app there are unchecked. On Linux, a reader reports clicks working with
-  2.1.302 in a terminal pane of the Orca app ([#14](https://github.com/pro-vi/cc-stretch/issues/14)).
+  2.1.295 again, but its clicks in the desktop app there are unchecked. On Linux, a reader reports clicks working with 2.1.302 in a
+  terminal pane of the Orca app ([#14](https://github.com/pro-vi/cc-stretch/issues/14)).
 - A terminal session that also has the desktop app attached shows the markup while a reply streams,
   because the desktop builds its links from it.
 

@@ -23,8 +23,8 @@ const APPEND = 'This session is a recorded product test. Write in English only, 
 // The installed cc-stretch is turned off for the session only, so the package under test is the one loaded.
 const ONLY_PACKAGE = JSON.stringify({ enabledPlugins: { 'cc-stretch@cc-stretch': false } });
 
-/** Begins a check of the package at `plugin`; open() starts each session. */
-export function startCheck({ plugin, out, append = APPEND }) {
+/** Begins a check of the package at `plugin`; open() starts each session, with `env` added to its environment. */
+export function startCheck({ plugin, out, append = APPEND, env = {} }) {
 	mkdirSync(out, { recursive: true });
 	const claude = claudePath();
 	const report = { plugin, claude: execFileSync(claude, ['--version'], { encoding: 'utf8' }).trim(), started: new Date().toISOString(), size: { cols: COLS, rows: ROWS } };
@@ -42,7 +42,7 @@ export function startCheck({ plugin, out, append = APPEND }) {
 		const debugFile = `${out}/debug-${sessions++}.log`;
 		pane = openPane({
 			cols: COLS, rows: ROWS, t0, frames, debugFile,
-			command: ['env', '-u', 'CLAUDE_CODE_CHILD_SESSION', `CLAUDE_CODE_NO_FLICKER=${fullscreen ? 1 : 0}`,
+			command: ['env', '-u', 'CLAUDE_CODE_CHILD_SESSION', `CLAUDE_CODE_NO_FLICKER=${fullscreen ? 1 : 0}`, ...Object.entries(env).map(([k, v]) => `${k}=${v}`),
 				claude, '--debug-file', debugFile, '--plugin-dir', plugin, '--settings', ONLY_PACKAGE, '--model', 'opus', '--append-system-prompt', append],
 		});
 	}
@@ -60,10 +60,11 @@ export function startCheck({ plugin, out, append = APPEND }) {
 		const pixels = pane.mouse(button, row, col, isUp);
 		if (pointerModes.at(-1)?.pixels !== pixels) pointerModes.push({ t: now(), pixels });
 	};
-	async function click(row, col) {
-		mouse(0, row, col);
+	/** Presses and releases `button` (an SGR mouse report button, the left one unless given) over a cell. */
+	async function click(row, col, button = 0) {
+		mouse(button, row, col);
 		await sleep(90);
-		mouse(0, row, col, true);
+		mouse(button, row, col, true);
 	}
 	async function type(words) {
 		for (const ch of words) {

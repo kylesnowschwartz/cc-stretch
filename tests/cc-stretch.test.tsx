@@ -5,7 +5,7 @@ import type { Engine } from 'claude-code/testing'
 import { grow } from '../hooks/grow'
 import { contrastOn } from '../hooks/contrast'
 import { DEFAULT_LOOK, lookOf, marksSetting } from '../hooks/look'
-import { layout, leadInOf, link, linkAt, namesOf, tint, widthOf, withLeadIns } from '../hooks/layout'
+import { hrefAt, layout, leadInOf, link, linkAt, namesOf, tint, widthOf, withLeadIns } from '../hooks/layout'
 import { closeAfter, hideLongForms, newStreamState, paragraphsOf, parse, stretches } from '../hooks/parse'
 import Reply from '../hooks/reply'
 
@@ -91,6 +91,15 @@ const clipboard = (on: On) => {
     return { value: { isCopied: true } }
   })
   return copies
+}
+/** What the plugin toasts. */
+const toasts = (on: On) => {
+  const said: string[] = []
+  on('ui.toast', (_, e) => {
+    said.push(e.text)
+    return { value: undefined }
+  })
+  return said
 }
 
 describe('grow', () => {
@@ -406,6 +415,13 @@ describe('layout', () => {
     expect(linkAt(rows, 6, 1)).toEqual({ action: 'open', key: 'k' })
     expect(linkAt(rows, 0, 1)).toBeUndefined()
     expect(linkAt(rows, 0, 2)).toEqual({ action: 'open', key: 'k' })
+  })
+
+  test('finds the hyperlink drawn at a cell, and none beside it', async () => {
+    const rows = layout('See [the docs](https://x.invalid/d) or https://x.invalid/u now', 80)
+    // "See the docs or https://x.invalid/u now"
+    expect([hrefAt(rows, 4, 0), hrefAt(rows, 11, 0), hrefAt(rows, 16, 0), hrefAt(rows, 34, 0)]).toEqual(['https://x.invalid/d', 'https://x.invalid/d', 'https://x.invalid/u', 'https://x.invalid/u'])
+    expect([hrefAt(rows, 3, 0), hrefAt(rows, 12, 0), hrefAt(rows, 35, 0), hrefAt(rows, 0, 1)]).toEqual([undefined, undefined, undefined, undefined])
   })
 
   test('finds the words a link with none of its own is pressed on, back to the start of their sentence', async () => {
@@ -1177,6 +1193,119 @@ test('in fullscreen or the phone app, no reply says why stretches are open', asy
   await phone.unmount()
 })
 
+describe('hyperlinks', () => {
+  const DOCS = 'Docs at https://x.invalid/docs and {{a stretch|a long stretch}}.'
+  /**
+   * Answers each command the plugin runs, and keeps the argument vector of each but `uname -s`, which
+   * names `system`; with none, `uname` does not start, as on Windows.
+   */
+  const commands = (on: On, { system = 'Darwin', exitCode = 0 }: { system?: string | null; exitCode?: number } = {}) => {
+    const ran: string[][] = []
+    const answer = (stdout: string) => ({ value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
+    on('process.run', (_, e, next) => {
+      if (e.argv[0] === 'uname') return system === null ? next(e) : answer(`${system}\n`)
+      ran.push([...e.argv])
+      return answer('')
+    })
+    return ran
+  }
+  /** Clicks cell `at` with a modifier held, as a mouse does: down, then up. */
+  const clickWith = async (ui: Mounted, at: { x: number; y: number }, modifier: { ctrl?: true; alt?: true }) => {
+    await ui.pointer({ type: 'down', ...at, button: 'left', ...modifier, in: FIRST })
+    await ui.pointer({ type: 'up', ...at, button: 'left', ...modifier, in: FIRST })
+  }
+
+  test("a ctrl- or alt-click on a hyperlink opens it with the machine's own opener, and selects nothing", async ($, on) => {
+    const ran = commands(on)
+    const copies = clipboard(on)
+    const ui = await mountReply($, FULLSCREEN, DOCS)
+    // "Docs at https://x.invalid/docs and a stretch."
+    await clickWith(ui, { x: 10, y: 0 }, { ctrl: true })
+    await clickWith(ui, { x: 28, y: 0 }, { alt: true })
+    await ui.advance(100)
+    expect(ran).toEqual([['open', 'https://x.invalid/docs'], ['open', 'https://x.invalid/docs']])
+    expect(copies).toEqual([])
+    expect((await ui.findAll({ type: 'Text', in: FIRST })).some(piece => piece.props.inverse === true)).toBe(false)
+    await ui.unmount()
+  })
+
+  test('a plain click on a hyperlink opens nothing, and a drag across it, ctrl held or not, still copies', async ($, on) => {
+    const ran = commands(on)
+    const copies = clipboard(on)
+    const ui = await mountReply($, FULLSCREEN, DOCS)
+    await drag(ui, { x: 10, y: 0 }, { x: 10, y: 0 })
+    await drag(ui, { x: 8, y: 0 }, { x: 30, y: 0 })
+    await ui.pointer({ type: 'down', x: 10, y: 0, button: 'left', ctrl: true, in: FIRST })
+    await ui.pointer({ type: 'move', x: 30, y: 0, button: 'left', ctrl: true, in: FIRST })
+    await ui.pointer({ type: 'up', x: 30, y: 0, button: 'left', ctrl: true, in: FIRST })
+    await ui.advance(100)
+    expect(ran).toEqual([])
+    // The ctrl-drag went down on the second t of https.
+    expect(copies).toEqual(['https://x.invalid/docs', 'tps://x.invalid/docs'])
+    await ui.unmount()
+  })
+
+  test('a ctrl-click on a file: link opens nothing: the terminal\'s own click is left to open it', async ($, on) => {
+    const ran = commands(on)
+    const ui = await mountReply($, FULLSCREEN, 'See [the log](file:///tmp/x.log) and {{a stretch|a long stretch}}.')
+    // "See the log and a stretch."
+    await clickWith(ui, { x: 6, y: 0 }, { ctrl: true })
+    await ui.advance(100)
+    expect(ran).toEqual([])
+    await ui.unmount()
+  })
+
+  test('a modified click away from a hyperlink acts as a plain one: on a short form it opens the stretch', async ($, on) => {
+    const ran = commands(on)
+    const ui = await mountReply($, FULLSCREEN, DOCS)
+    await clickWith(ui, { x: 36, y: 0 }, { ctrl: true })
+    await ui.advance(2000)
+    expect(await textIn(ui)).toBe('Docs at https://x.invalid/docs and a long stretch «.')
+    expect(ran).toEqual([])
+    await ui.unmount()
+  })
+
+  test('a hyperlink inside a short form opens on a modified click, and the stretch on a plain one', async ($, on) => {
+    const ran = commands(on)
+    const ui = await mountReply($, FULLSCREEN, 'Read {{the [guide](https://x.invalid/g)|the [guide](https://x.invalid/g), part two}} now.')
+    // "Read the guide now."
+    await clickWith(ui, { x: 10, y: 0 }, { alt: true })
+    await ui.advance(100)
+    expect(ran).toEqual([['open', 'https://x.invalid/g']])
+    expect(await textIn(ui)).toBe('Read the guide now.')
+    await pressOn(ui, 'guide')
+    await ui.advance(2000)
+    expect(await textIn(ui)).toBe('Read the guide, part two « now.')
+    await ui.unmount()
+  })
+
+  test('a hyperlink that could not be opened is said so', async ($, on) => {
+    commands(on, { exitCode: 1 })
+    const said = toasts(on)
+    const ui = await mountReply($, FULLSCREEN, DOCS)
+    await clickWith(ui, { x: 10, y: 0 }, { ctrl: true })
+    await ui.advance(100)
+    expect(said).toEqual(['cc-stretch: could not open https://x.invalid/docs'])
+    await ui.unmount()
+  })
+
+  // On Windows the URL goes to rundll32, which runs no shell: `cmd /c start` would read the `&` as its own.
+  for (const [system, opener] of [
+    ['Linux', ['sh', '-c', 'xdg-open "$1" </dev/null >/dev/null 2>&1', 'sh']],
+    ['MINGW64_NT-10.0-26100', ['rundll32', 'url.dll,FileProtocolHandler']],
+    [null, ['rundll32', 'url.dll,FileProtocolHandler']],
+  ] as const) {
+    test(`with uname naming ${system ?? 'nothing'}, a hyperlink opens with ${opener.at(-1) === 'sh' ? 'xdg-open' : opener[0]}`, async ($, on) => {
+      const ran = commands(on, { system })
+      const ui = await mountReply($, FULLSCREEN, 'See https://x.invalid/a?b=1&c=2 and {{a stretch|a long stretch}}.')
+      await clickWith(ui, { x: 6, y: 0 }, { ctrl: true })
+      await ui.advance(100)
+      expect(ran).toEqual([[...opener, 'https://x.invalid/a?b=1&c=2']])
+      await ui.unmount()
+    })
+  }
+})
+
 describe('desktop app', () => {
   // A link names its stretch by its place among the reply's stretches.
   const linkTo = (action: 'open' | 'close', key: string, text = REPLY) =>
@@ -1884,16 +2013,6 @@ describe('the style toolbar', () => {
     })
     return written
   }
-  /** What the toolbar toasts. */
-  const toasts = (on: On) => {
-    const said: string[] = []
-    on('ui.toast', (_, e) => {
-      said.push(e.text)
-      return { value: undefined }
-    })
-    return said
-  }
-
   test('/cc-stretch:style shows the toolbar, and running it again leaves it shown', async ($, on) => {
     terminal(on)
     const { answer, toolbar } = await showToolbar($)

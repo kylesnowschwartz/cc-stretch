@@ -92,6 +92,25 @@ into `<outDir>`, and exits 1 if a step failed; `node film/e2e/render.mjs <outDir
 - **Gotchas:** run the check from a folder Claude Code already trusts; it does not answer the trust
   question, which is the person's to answer.
 
+### Open a link in a paragraph that holds a stretch
+
+- **Reach:** a paragraph that holds a stretch and a URL or a markdown link. `film/e2e/follow.mjs`
+  has Claude write a fixed sample through `--append-system-prompt` and checks the steps below, with
+  a stand-in `open` and `xdg-open` first on the session's PATH that write each URL to a file.
+- **Drive:**
+  1. Ctrl-click or alt-click the URL, underlined in the suggestion colour: it is opened, and
+     nothing is selected.
+  2. Click it plainly: nothing is opened, and nothing is selected.
+  3. Ctrl-click a closed stretch: it opens, as on a plain click, and no URL is opened.
+  4. Alt-click a link inside a closed stretch's short form: the link is opened, and the stretch
+     stays closed.
+- **Writes:** nothing outside its `<outDir>`.
+- **Gotchas:**
+  - The check sends the modifiers itself; which ones a real click passes on is the terminal's
+    choice.
+  - Run the check from a folder Claude Code already trusts; it does not answer the trust question,
+    which is the person's to answer.
+
 ### The style toolbar
 
 - **Reach:** `/cc-stretch:style`; typing `/cc-stretch` lists it. `film/e2e/style.mjs` and
