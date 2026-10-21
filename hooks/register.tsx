@@ -559,9 +559,11 @@ export const register: Register = (on, options) => {
   })
 
   // A change to the prompt box that is not an edit, such as a recalled history entry or a clear,
-  // puts the letters away too.
-  on('prompt.change', async ($, e, next) => {
-    if ((await read($, lettering)) !== null) await update($, lettering, () => null)
+  // puts the letters away too. As of Claude Code 2.1.295 a module that names an event the engine
+  // lacks is refused whole, and prompt.change came in 2.1.300, so this hook stands on prompt.* and
+  // acts on that event only.
+  on('prompt.*', async ($, e, next) => {
+    if (next.event === 'prompt.change' && (await read($, lettering)) !== null) await update($, lettering, () => null)
     return next(e)
   })
 }

@@ -83,8 +83,8 @@ never lose your place.
 - **Letters for the keyboard.** In the terminal's fullscreen layout, alt+↓ or ctrl+↓ puts a letter
   over each closed stretch in the latest three replies on screen that hold one (up to 26), and
   typing that letter opens it. alt+↑ or ctrl+↑ puts letters over each «, to close. Typing anything
-  else puts the letters away and is typed as usual. Recalling a prompt, sending one, or pressing
-  the same chord again puts them away too. As of Claude Code 2.1.301 a plugin has no chords of its
+  else puts the letters away and is typed as usual. Recalling a prompt (from Claude Code 2.1.300),
+  sending one, or pressing the same chord again puts them away too. As of Claude Code 2.1.301 a plugin has no chords of its
   own, and these are the ones that scroll the diff panel's file list, so while that panel is open
   with more than eight files they scroll it instead. As of macOS 26, ctrl+↑ opens Mission Control
   and ctrl+↓ shows the app's windows by default. If your terminal or system takes both chords of
@@ -123,8 +123,11 @@ never lose your place.
   less; you don't pay less.
 - The `{{short|long}}` markup shows as raw text wherever the plugin isn't loaded.
 - Built on Claude Code's function-hook plugin API, which is early access and changes between
-  releases. Checked in the terminal on macOS with Claude Code 2.1.292 to 2.1.294 and 2.1.300 to
-  2.1.302, and in the Claude desktop app with 2.1.295. On Linux, a reader reports clicks working with
+  releases. Checked in the terminal on macOS with Claude Code 2.1.300 to 2.1.302 and 2.1.306, and
+  with 2.1.292 to 2.1.294 in cc-stretch 0.1.0; in the Claude desktop app with 2.1.295 in cc-stretch
+  0.2.0. Claude Code before 2.1.300, which the desktop app can still bundle, refused cc-stretch 0.4.0
+  to 0.5.2 whole ([#17](https://github.com/pro-vi/cc-stretch/issues/17)); 0.5.3 loads in 2.1.293 and
+  2.1.295 again, but its clicks in the desktop app there are unchecked. On Linux, a reader reports clicks working with
   2.1.302 in a terminal pane of the Orca app ([#14](https://github.com/pro-vi/cc-stretch/issues/14)).
 - A terminal session that also has the desktop app attached shows the markup while a reply streams,
   because the desktop builds its links from it.
