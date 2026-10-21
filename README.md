@@ -96,7 +96,7 @@ never lose your place.
   highlight, either one hex colour or `tinted`, which highlights each closed stretch in the colour its
   added words are drawn in once you open it, blended 75% into the background. Under a highlight,
   `dim` moves the text toward the highlight. `save` keeps the style in two plugin settings, `marks`
-  and `highlight`, which as of Claude Code 2.1.302 `/plugin`'s Configure options also changes;
+  and `highlight`, which as of Claude Code 2.1.302 `/plugin`'s Configure options also change;
   `close` puts the toolbar away and drops a style you tried but did not save. In the Claude desktop
   app, where cc-stretch draws stretches as links, there is no toolbar.
 
