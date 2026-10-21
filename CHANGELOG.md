@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.3 — 2026-10-21
+
+- cc-stretch loads again in Claude Code before 2.1.300, which the Claude desktop app can still
+  bundle (checked in 2.1.293 and 2.1.295; clicks in the desktop app with them are unchecked). Since
+  0.4.0 it named `prompt.change`, an event those versions lack, and they refused the whole plugin,
+  so replies came as plain text ([#17](https://github.com/pro-vi/cc-stretch/issues/17)).
+- A ctrl- or alt-click on an `http:` or `https:` link in a paragraph that holds a stretch opens it
+  as the button comes up, as Claude Code 2.1.304 does in a paragraph without one; a ctrl- or
+  alt-drag from it still selects. A `file:` link, which could name a program behind its words, is
+  left to the terminal's own click, and a cmd-click, where the terminal keeps it, was the
+  terminal's own already. The link opens with `open` on macOS, `xdg-open` on Linux and `rundll32`
+  on Windows, and a toast says when it could not; the Linux and Windows commands are unchecked
+  ([#18](https://github.com/pro-vi/cc-stretch/issues/18)). Based on a branch by @RaimundOstrowski.
+
 ## 0.5.2 — 2026-10-20
 
 - When Claude makes a sentence's period the link to more, or a spot with no words at all, the
