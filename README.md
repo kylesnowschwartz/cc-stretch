@@ -84,12 +84,12 @@ never lose your place.
   over each closed stretch in the latest three replies on screen that hold one (up to 26), and
   typing that letter opens it. alt+↑ or ctrl+↑ puts letters over each «, to close. Typing anything
   else puts the letters away and is typed as usual. Recalling a prompt (from Claude Code 2.1.300),
-  sending one, or pressing the same chord again puts them away too. As of Claude Code 2.1.301 a plugin has no chords of its
-  own, and these are the ones that scroll the diff panel's file list, so while that panel is open
-  with more than eight files they scroll it instead. As of macOS 26, ctrl+↑ opens Mission Control
-  and ctrl+↓ shows the app's windows by default. If your terminal or system takes both chords of
-  one action, bind another to `app:diffFileListDown` or `app:diffFileListUp` in the `Global`
-  context of `~/.claude/keybindings.json`.
+  sending one, or pressing the same chord again puts them away too. As of Claude Code 2.1.301 a
+  plugin has no chords of its own, and these are the ones that scroll the diff panel's file list, so
+  while that panel is open with more than eight files they scroll it instead. As of macOS 26, ctrl+↑
+  opens Mission Control and ctrl+↓ shows the app's windows by default. If your terminal or system
+  takes both chords of one action, bind another to `app:diffFileListDown` or `app:diffFileListUp` in
+  the `Global` context of `~/.claude/keybindings.json`.
 - **The marking is yours to pick.** Phrases you can open are underlined by default. In the
   terminal's fullscreen layout, run `/cc-stretch:style` and a toolbar above the prompt restyles
   every reply as you click: marks (`bold`, `italic`, `underline`, `strikethrough`, `dim`) and a
@@ -108,8 +108,6 @@ never lose your place.
   setups start on the main screen even with fullscreen set: `tmux -CC`, SSH from Windows, or a
   machine where an earlier fullscreen start failed. Starting Claude Code with
   `CLAUDE_CODE_NO_FLICKER=1` forces fullscreen there.
-- On Windows, clicks are reported not to work yet
-  ([#1](https://github.com/pro-vi/cc-stretch/issues/1)).
 - In the terminal the plugin draws each paragraph that holds a stretch itself, and as of Claude
   Code 2.1.302 its transcript selects nothing in it. A drag there is the plugin's: the text it
   crosses is drawn inverse and copied when the button comes up, and it stays within that paragraph.
@@ -129,8 +127,10 @@ never lose your place.
   with 2.1.292 to 2.1.294 in cc-stretch 0.1.0; in the Claude desktop app with 2.1.295 in cc-stretch
   0.2.0. Claude Code before 2.1.300, which the desktop app can still bundle, refused cc-stretch 0.4.0
   to 0.5.2 whole ([#17](https://github.com/pro-vi/cc-stretch/issues/17)); 0.5.3 loads in 2.1.293 and
-  2.1.295 again, but its clicks in the desktop app there are unchecked. On Linux, a reader reports clicks working with 2.1.302 in a
-  terminal pane of the Orca app ([#14](https://github.com/pro-vi/cc-stretch/issues/14)).
+  2.1.295 again, but its clicks in the desktop app there are unchecked. On Linux, a reader reports
+  clicks working with 2.1.302 in a terminal pane of the Orca app
+  ([#14](https://github.com/pro-vi/cc-stretch/issues/14)). On Windows 11, a reader reports clicks
+  working with 2.1.304 in PowerShell ([#1](https://github.com/pro-vi/cc-stretch/issues/1)).
 - A terminal session that also has the desktop app attached shows the markup while a reply streams,
   because the desktop builds its links from it.
 
