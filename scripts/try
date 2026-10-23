@@ -1,15 +1,44 @@
 #!/usr/bin/env bash
 # Starts Claude Code with this checkout loaded as the cc-stretch plugin, in fullscreen, with
-# stretchtext on for the session. Arguments are passed on to claude: scripts/try --model sonnet
+# stretchtext on for the session.
+#
+#   scripts/try [--style <name>|none] [claude arguments...]
+#
+# --style <name> runs the session under this checkout's output style output-styles/<name>.md
+# (cc-stretch:<name>, default bottom-line-stretch), whose marker block is sent with each prompt.
+# --style none keeps your own output style and sends the phrase guide instead. Every other argument
+# is passed on to claude: scripts/try --model sonnet. CC_STRETCH_TRY_DRY=1 prints the command
+# instead of running it.
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+style=bottom-line-stretch
+args=()
+while (($#)); do
+  case "$1" in
+    --style) style="${2:?--style needs a name, or none}"; shift 2 ;;
+    --style=*) style="${1#--style=}"; shift ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
 
 # As of Claude Code 2.1.309 a plugin loaded with --plugin-dir reads its options from
 # pluginConfigs["cc-stretch"].options in the user settings, --settings and managed settings, so
 # --settings starts this session with stretchtext on and leaves the settings files alone. A
 # cc-stretch installed from the marketplace is turned off for the session, so its hooks do not run
 # beside this checkout's. CLAUDE_CODE_NO_FLICKER=1 forces fullscreen, where stretches are clickable.
-settings='{"enabledPlugins":{"cc-stretch@cc-stretch":false},"pluginConfigs":{"cc-stretch":{"options":{"startOn":true}}}}'
+if [[ "$style" == none ]]; then
+  chosen=''
+else
+  chosen="\"outputStyle\":\"cc-stretch:$style\","
+fi
+settings="{$chosen\"enabledPlugins\":{\"cc-stretch@cc-stretch\":false},\"pluginConfigs\":{\"cc-stretch\":{\"options\":{\"startOn\":true}}}}"
 
-CLAUDE_CODE_NO_FLICKER=1 exec claude --plugin-dir "$repo" --settings "$settings" "$@"
+if [[ "${CC_STRETCH_TRY_DRY:-}" == 1 ]]; then
+  printf "CLAUDE_CODE_NO_FLICKER=1 claude --plugin-dir %q --settings '%s'" "$repo" "$settings"
+  if ((${#args[@]})); then printf ' %q' "${args[@]}"; fi
+  printf '\n'
+  exit 0
+fi
+CLAUDE_CODE_NO_FLICKER=1 exec claude --plugin-dir "$repo" --settings "$settings" ${args[@]+"${args[@]}"}
