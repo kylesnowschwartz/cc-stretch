@@ -2,7 +2,7 @@ import type { ClientModule, ClientPointerEvent, ClientSurface, TextProps } from 
 
 import { durationOf, grow } from './grow'
 import type { Motion } from './grow'
-import { continuationOf, hrefAt, isMarkup, isWebLink, layout, link, linkAt, namesOf, openedOf, targetsIn, tint, widthOf, withLeadIns } from './layout'
+import { continuationOf, foldArrow, foldGlyph, hrefAt, isMarkup, isWebLink, layout, link, linkAt, namesOf, openedOf, sectionOf, startsBlock, targetsIn, tint, widthOf, withLeadIns } from './layout'
 import type { Action, OpenedStretch, Row, Run } from './layout'
 import { closeAfter, isLinkable, KEY_SEPARATOR, parse } from './parse'
 import { DEFAULT_LOOK, drawsHighlight, lookProps } from './look'
@@ -167,14 +167,21 @@ export default Reply
 
 /**
  * The paragraph as the reader sees it now: closed stretches as pressable short forms, open ones in
- * full then a «, the words each added in its tint.
+ * full then a «, the words each added in its tint. A paragraph that is one stretch, a section, has a
+ * fold arrow before it: ▸ closed, ▾ open, pressable as the stretch is, and plain while it grows.
  */
 function compose(segments: Segment[], state: State, tints: ReadonlyMap<string, Tint>): string {
+  const section = sectionOf(segments)
+  // A long form that starts with a block, such as a rule or a list, starts on the line after its arrow.
+  const withArrow = (stretch: Stretch, drawn: string): string => {
+    const arrow = state.growth?.key === stretch.key ? `${foldGlyph(state.growth.isOpening)} ` : foldArrow(state.open.includes(stretch.key) ? 'close' : 'open', stretch.key)
+    return `${arrow}${startsBlock(drawn.split('\n', 1)[0] ?? '') ? '\n' : ''}${drawn}`
+  }
   // The lead-in words of a link with no words of its own open it too, also while another stretch
   // grows: `layout` never lets half a code span or link drawn by that growth run over their marks.
   const write = (parts: Segment[], isParagraphEnd = false): string =>
     withLeadIns(parts, stretch => !state.open.includes(stretch.key), isParagraphEnd)
-      .map(part => (typeof part === 'string' ? part : draw(part)))
+      .map(part => (typeof part === 'string' ? part : part === section ? withArrow(part, draw(part)) : draw(part)))
       .join('')
   const draw = (stretch: Stretch): string => {
     if (stretch.long === undefined || !stretch.isClosed) return stretch.short
@@ -194,8 +201,8 @@ function compose(segments: Segment[], state: State, tints: ReadonlyMap<string, T
 
 /**
  * The rows with each letter drawn over the first character of what a press on its stretch acts on:
- * its lead-in words if it has them, else its short form, or its «, so nothing on screen moves; the
- * rest of that text is marked.
+ * a section's fold arrow, else its lead-in words if it has them, else its short form, or its «, so
+ * nothing on screen moves; the rest of that text is marked.
  */
 function lettered(rows: Row[], letters: Letters | null): DrawnRun[][] {
   if (letters === null) return rows
@@ -554,8 +561,10 @@ function styleOf(run: DrawnRun, look: DrawnLook): TextProps {
   // While a letter covers the phrase, the rest of it keeps a highlight drawn on it, so a tinted one
   // still shows the colour the stretch opens in; any other part is drawn in inverse text on the
   // permission colour, underlined whatever the look.
-  const isOnPermission = run.isAfterLetter && !drawsHighlight(look, isPlainText)
-  const looked = run.link && !run.isLetter && !isOnPermission ? lookProps(look, isPlainText, run.dim) : undefined
+  // A section's fold arrow is pressable but drawn plain, so the marks stay on the words.
+  const isFold = run.link?.isFold === true
+  const isOnPermission = run.isAfterLetter && !isFold && !drawsHighlight(look, isPlainText)
+  const looked = run.link && !isFold && !run.isLetter && !isOnPermission ? lookProps(look, isPlainText, run.dim) : undefined
   return {
     ...(run.bold && { bold: true }),
     ...(run.italic && { italic: true }),
@@ -564,7 +573,7 @@ function styleOf(run: DrawnRun, look: DrawnLook): TextProps {
     ...(run.dim && looked === undefined && { dimColor: true }),
     ...(run.tint && { color: run.tint }),
     ...(run.code && { color: 'permission' }),
-    ...(run.link && (looked ?? { underline: true })),
+    ...(run.link && !isFold && (looked ?? { underline: true })),
     // A hyperlink is underlined in the suggestion colour, so it is not read as a stretch to press.
     ...(run.href !== undefined && { underline: true, color: 'suggestion' }),
     ...(isOnPermission && { color: 'inverseText', backgroundColor: 'permission' }),

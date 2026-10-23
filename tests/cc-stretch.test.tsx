@@ -6,7 +6,7 @@ import { durationOf, FAST_MS, grow } from '../hooks/grow'
 import { GUIDE } from '../hooks/guide'
 import { contrastOn } from '../hooks/contrast'
 import { DEFAULT_LOOK, lookOf, marksSetting } from '../hooks/look'
-import { hrefAt, layout, leadInOf, link, linkAt, namesOf, tint, widthOf, withLeadIns } from '../hooks/layout'
+import { hrefAt, layout, leadInOf, link, linkAt, namesOf, sectionOf, tint, widthOf, withLeadIns } from '../hooks/layout'
 import { closeAfter, hideLongForms, newStreamState, paragraphsOf, parse, stretches } from '../hooks/parse'
 import { rulesOf } from '../hooks/style'
 import Reply from '../hooks/reply'
@@ -339,7 +339,7 @@ describe('streaming', () => {
     on('session.messages', () => ({ value: [{ role: 'assistant', text: REPLY, toolUses: [] }] }))
     const ui = await mountReply($, FULLSCREEN, hideLongForms(REPLY, newStreamState()))
     expect(await textIn(ui)).toBe('The build fails on a stale cache.\nBraces in code stay: {{a|b}}.')
-    expect(await textIn(ui, 'paragraph-1')).toBe('The fix is one line.')
+    expect(await textIn(ui, 'paragraph-1')).toBe('▸ The fix is one line.')
     await ui.unmount()
   })
 
@@ -644,7 +644,7 @@ describe('paragraphs', () => {
   test('a reply whose stretch closes on a code block\'s closing fence draws every section after it', async $ => {
     const text = ['{{Count first.|Count first.', '', '```bash', 'git push', '```}}', '', 'After {{risks|the risks}}.'].join('\n')
     const ui = await mountReply($, FULLSCREEN, text)
-    expect(await textIn(ui, 'paragraph-0')).toBe('Count first.')
+    expect(await textIn(ui, 'paragraph-0')).toBe('▸ Count first.')
     expect(await textIn(ui, 'paragraph-1')).toBe('After risks.')
     await ui.unmount()
   })
@@ -773,7 +773,7 @@ test('marks none leaves a pressable phrase unmarked but still pressable', { opti
 test('a press grows a stretch in place, nested ones too, and « shrinks it back', async $ => {
   const ui = await mountReply($, FULLSCREEN)
   expect(await textIn(ui)).toBe('The build fails on a stale cache.\nBraces in code stay: {{a|b}}.')
-  expect(await textIn(ui, 'paragraph-1')).toBe('The fix is one line.')
+  expect(await textIn(ui, 'paragraph-1')).toBe('▸ The fix is one line.')
   expect((await ui.find({ type: 'Button' }))?.props.label).toBe('⏺')
   // A pressable phrase is underlined; code beside it is not.
   const pieces = await ui.findAll({ type: 'Text', in: FIRST })
@@ -1161,12 +1161,14 @@ test('in the terminal, a « after a rule or a code fence goes on its own line an
   await pressOn(ui, 'the fix', { key: 'paragraph-1' })
   await ui.advance(2000)
   const rows = await rowsOf(ui)
+  // The section's arrow stands on a line of its own, so the rule that starts its long form stays one.
+  expect(rows.slice(0, 2)).toEqual(['▾ ', expect.stringMatching(/^─+$/)])
   expect(rows.at(-2)).toMatch(/^─+$/)
   expect(rows.at(-1)).toBe('«')
   expect((await rowsOf(ui, 'paragraph-1')).slice(-2)).toEqual(['  key: 1', '«'])
   await pressOn(ui, '«', { last: true })
   await ui.advance(2000)
-  expect(await textIn(ui)).toBe('Status.')
+  expect(await textIn(ui)).toBe('▸ Status.')
   await ui.unmount()
 })
 
@@ -1691,6 +1693,77 @@ describe('the stretchtext switch', () => {
   })
 })
 
+describe('fold arrows', () => {
+  const SECTION = '{{Count first.|Count first, then push the branch.}}'
+  const pieces = async (ui: Mounted) => (await ui.findAll({ type: 'Text', in: FIRST })).filter(piece => piece.text !== undefined && piece.text !== '')
+
+  test('a stretch that is the whole paragraph draws ▸ before its short form closed and ▾ before its long form open, the marks on the words alone', async $ => {
+    expect(sectionOf(parse(`\n${SECTION}  `))?.short).toBe('Count first.')
+    const ui = await mountReply($, FULLSCREEN, SECTION)
+    expect(await textIn(ui)).toBe('▸ Count first.')
+    const closed = await pieces(ui)
+    expect(closed.find(piece => piece.text === '▸ ')?.props.underline).toBeUndefined()
+    expect(closed.find(piece => piece.text === 'Count first.')?.props).toMatchObject({ underline: true })
+    await pressOn(ui, 'Count first.')
+    await ui.advance(2000)
+    expect(await textIn(ui)).toBe('▾ Count first, then push the branch. «')
+    await ui.unmount()
+  })
+
+  test('a stretch inside a sentence, or beside other text, gets no arrow', async $ => {
+    const ui = await mountReply($, FULLSCREEN)
+    expect(await textIn(ui)).toMatch(/^The build fails on a stale cache\.\n/)
+    await ui.unmount()
+    const beside = await mountReply($, FULLSCREEN, `${SECTION} And more.`)
+    expect(await textIn(beside)).toBe('Count first. And more.')
+    await beside.unmount()
+  })
+
+  test('a press on the arrow opens the stretch, and a press on ▾ closes it', async $ => {
+    const ui = await mountReply($, FULLSCREEN, SECTION)
+    await pressOn(ui, '▸')
+    await ui.advance(2000)
+    expect(await textIn(ui)).toBe('▾ Count first, then push the branch. «')
+    await pressOn(ui, '▾')
+    await ui.advance(2000)
+    expect(await textIn(ui)).toBe('▸ Count first.')
+    await ui.unmount()
+  })
+
+  test('the rows a section wraps onto start under its words, not its arrow, and a press there opens it', async $ => {
+    const text = '{{Count the commits in the range first, with a pipe.|Count the commits in the range first, with a pipe, then rebase.}}'
+    const ui = await mountReply($, { columns: 24, rows: 40, isFullscreen: true }, text)
+    const rows = await rowsOf(ui)
+    expect(rows.length).toBeGreaterThan(1)
+    expect(rows[0]).toMatch(/^▸ Count/)
+    for (const row of rows.slice(1)) expect(row).toMatch(/^ {2}\S/)
+    expect(Math.max(...rows.map(widthOf))).toBeLessThanOrEqual(24)
+    expect(rows.join(' ').replace(/\s+/g, ' ')).toBe(`▸ ${'Count the commits in the range first, with a pipe.'}`)
+    await pressOn(ui, 'pipe.')
+    await ui.advance(2000)
+    const open = await rowsOf(ui)
+    expect(open[0]).toMatch(/^▾ Count/)
+    for (const row of open.slice(1)) expect(row).toMatch(/^ {2}\S/)
+    expect(Math.max(...open.map(widthOf))).toBeLessThanOrEqual(24)
+    expect(open.join(' ')).toContain('«')
+    await ui.unmount()
+  })
+
+  test('the note to Claude names a section by its short form, without the arrow', async ($, on) => {
+    on('session.messages', () => ({ value: [{ role: 'assistant', text: SECTION, toolUses: [] }] }))
+    let context: readonly string[] | undefined
+    on('prompt.submit', (_, e) => {
+      context = e.context
+      return { text: e.text, context: e.context }
+    })
+    const ui = await mountReply($, FULLSCREEN, SECTION)
+    await pressOn(ui, '▸')
+    await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
+    expect(context?.at(-1)).toBe('Stretchtext: since your last reply the reader opened "Count first.".')
+    await ui.unmount()
+  })
+})
+
 describe('motion', () => {
   const LONG = 'because the cache key hashes only'
   /** Whether the first stretch of REPLY is drawn fully open: its long form, and its « after it. */
@@ -1913,6 +1986,20 @@ describe('keyboard', () => {
     expect(await type($, 'a')).toBe('')
     await ui.advance(2000)
     expect(await textIn(ui)).toContain('The build fails on a stale cache.')
+    await ui.unmount()
+  })
+
+  test('over a section, the letter covers its arrow, and its words stay as written', async ($, on) => {
+    const text = '{{Count first.|Count first, then push the branch.}}'
+    engine(on, [text])
+    const ui = await mountReply($, FULLSCREEN, text)
+    await down(ui)
+    expect(await letters(ui)).toEqual(['a'])
+    expect(await textIn(ui)).toBe('a Count first.')
+    expect(await type($, 'a')).toBe('')
+    await ui.advance(2000)
+    await up(ui)
+    expect(await textIn(ui)).toBe('a Count first, then push the branch. «')
     await ui.unmount()
   })
 

@@ -106,6 +106,9 @@ never lose your place.
   or a spot with no words at all, the sentence's words before it open it too, marked like the link,
   so there is a phrase to click rather than one cell. This is in the terminal's fullscreen layout;
   in the Claude desktop app only the short form is the link.
+- **Sections fold.** In the terminal's fullscreen layout, a stretch that is a whole paragraph on its
+  own, such as a section under the `bottom-line-stretch` style, has an arrow before it: `▸` closed,
+  `▾` open. A click on the arrow opens or closes it, as a click on its words does.
 - **Streaming stays clean.** While a reply streams, stretches already show as their short forms.
 - **Letters for the keyboard.** In the terminal's fullscreen layout, alt+↓ or ctrl+↓ puts a letter
   over each closed stretch in the latest three replies on screen that hold one (up to 26), and

@@ -31,6 +31,12 @@ describe('benchmark measures', () => {
     expect(render('A {{b|c', 'all')).toBe('A b')
   })
 
+  test('a section stretch is measured by its words alone, with no fold arrow', async () => {
+    const text = ['{{Count first.|Count first, then push.}}', '', '{{Risks.|Risks, long.}}'].join('\n')
+    expect(render(text, new Set())).toBe('Count first.\n\nRisks.')
+    expect(measure(text)).toEqual({ skim: 3, full: 6 })
+  })
+
   test('a stretch closing on a code block\'s closing fence leaves the text after it in both measures', async () => {
     const text = ['{{Count first.|Count first, then push:', '```bash', 'git push', '```}}', '', '{{Risks.|Risks, long.}}', '', 'Bottom line: done.'].join('\n')
     expect(render(text, new Set())).toBe('Count first.\n\nRisks.\n\nBottom line: done.')

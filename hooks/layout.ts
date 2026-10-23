@@ -21,8 +21,10 @@ export type Run = {
    * The stretch a press acts on, and how. `isLeadIn` marks lead-in words: the words written just before
    * a link with no words of its own, and the punctuation glued after an empty short form, which a press
    * opens too. They stay a run apart from the link, so rows break where they would without it.
+   * `isFold` marks the arrow before a section stretch, which a press acts on as on the stretch and
+   * which takes none of the look of a pressable phrase.
    */
-  link?: { action: Action; key: string; isLeadIn?: true }
+  link?: { action: Action; key: string; isLeadIn?: true; isFold?: true }
   /** Where a markdown link or a bare URL goes, drawn as a hyperlink. */
   href?: string
 }
@@ -94,6 +96,41 @@ export function isMarkup(word: string): boolean {
  */
 export function link(action: Action | 'leadIn', key: string, label: string): string {
   return `${START}${action}${SEP}${key}${SEP}${label}${END}`
+}
+
+/** The arrow before a section stretch: ▸ while it is closed, ▾ while it is open or opening. */
+export function foldGlyph(isOpen: boolean): string {
+  return isOpen ? '▾' : '▸'
+}
+
+/**
+ * The arrow before section stretch `key` and the space after it, for composed text: a press on either
+ * does `action` to the stretch, ▸ to open it, ▾ to close it.
+ */
+export function foldArrow(action: Action, key: string): string {
+  return `${START}fold-${action}${SEP}${key}${SEP}${foldGlyph(action === 'close')} ${END}`
+}
+
+// A line that starts with a section stretch's arrow, pressable or not: the rows it wraps onto start
+// under the text after the arrow.
+const FOLD_LINE = /^\s*(?:\ufdd0[^\ufdd1]*\ufdd1[^\ufdd1]*\ufdd1)?[▸▾] /
+
+/**
+ * Whether `line` starts a markdown block a text before it on the line would undo: a rule, a heading,
+ * a quote, a list item, a table row or a code fence.
+ */
+export function startsBlock(line: string): boolean {
+  return isRule(line) || HEADING.test(line) || QUOTE.test(line) || LIST_ITEM.test(line) || TABLE_ROW.test(line) || openingFence(line) !== undefined
+}
+
+/**
+ * The stretch a paragraph is made of, when it holds nothing else but white space and is drawn as a
+ * link: a section stretch, drawn with a fold arrow before it.
+ */
+export function sectionOf(parts: Segment[]): Stretch | undefined {
+  const written = parts.filter(part => typeof part !== 'string' || part.trim() !== '')
+  const [only] = written
+  return written.length === 1 && only !== undefined && typeof only !== 'string' && drawnAs(only) === 'link' ? only : undefined
 }
 
 /** Punctuation that ends a sentence at the end of a word, before any closing quote or bracket. */
@@ -519,8 +556,9 @@ function rowsOf({ text: line, tints }: Line, width: number): Row[] {
     return wrap(inlineOf(item[3] ?? ''), width, lead, ' '.repeat(widthOf(lead)))
   }
   const indent = /^\s*/.exec(line)?.[0] ?? ''
+  const hang = FOLD_LINE.test(line) ? '  ' : ''
 
-  return wrap(inlineOf(line.slice(indent.length)), width, indent, indent)
+  return wrap(inlineOf(line.slice(indent.length)), width, indent, `${indent}${hang}`)
 }
 
 /** A line's inline markdown as runs: bold, italic, code spans, links, pressable phrases, each character in its tint. */
@@ -551,8 +589,15 @@ function inline(text: string, tints: Line['tints'], isBold = false): Run[] {
     const first = ch === START ? text.indexOf(SEP, i + 1) : -1
     const second = first === -1 ? -1 : text.indexOf(SEP, first + 1)
     if (second !== -1) {
-      const action = text.slice(i + 1, first)
-      pressable = { action: action === 'close' ? 'close' : 'open', key: text.slice(first + 1, second), ...(action === 'leadIn' && { isLeadIn: true }) }
+      const marked = text.slice(i + 1, first)
+      const isFold = marked.startsWith('fold-')
+      const action = isFold ? marked.slice('fold-'.length) : marked
+      pressable = {
+        action: action === 'close' ? 'close' : 'open',
+        key: text.slice(first + 1, second),
+        ...(action === 'leadIn' && { isLeadIn: true }),
+        ...(isFold && { isFold: true }),
+      }
       i = second + 1
       continue
     }
@@ -734,6 +779,6 @@ function cut(text: string, room: number): [string, string] {
 function isSameStyle(a: Run, b: Run): boolean {
   return (
     a.bold === b.bold && a.italic === b.italic && a.code === b.code && a.underline === b.underline && a.dim === b.dim && a.tint === b.tint &&
-    a.link?.action === b.link?.action && a.link?.key === b.link?.key && a.link?.isLeadIn === b.link?.isLeadIn && a.href === b.href
+    a.link?.action === b.link?.action && a.link?.key === b.link?.key && a.link?.isLeadIn === b.link?.isLeadIn && a.link?.isFold === b.link?.isFold && a.href === b.href
   )
 }
