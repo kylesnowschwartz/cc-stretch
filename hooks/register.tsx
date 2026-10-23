@@ -3,7 +3,6 @@ import type { ClassicEventOf, ClassicResultOf, EngineInterface, Register, Render
 
 import { GUIDE } from './guide'
 import { resolveStyle, styleNow } from './style'
-import type { StretchStyle } from './style'
 import type { Motion } from './grow'
 import { closeAfter, codeSpan, hideLongForms, isLinkable, isOpenable, KEY_SEPARATOR, newStreamState, paragraphsOf, parentOf, parse, stretches } from './parse'
 import type { Segment, StreamState, Stretch } from './parse'
@@ -225,23 +224,16 @@ async function isOn($: EngineInterface, startsOn: boolean): Promise<boolean> {
  * How a stretch opens and closes, from the `motion` setting: as set, or under `auto` at once while a
  * cc-stretch output style is active, whose sections the reader opens whole, else growing.
  */
-function motionFor(setting: unknown, style: StretchStyle | null): Motion {
+function motionFor(setting: unknown, style: string | null): Motion {
   if (setting === 'grow' || setting === 'fast' || setting === 'instant') return setting
   return style === null ? 'grow' : 'instant'
 }
 
-/** What Claude is sent with each typed prompt while stretchtext is on: the style's rules, the phrase guide, or nothing. */
-function rulesFor(style: StretchStyle | null): string[] {
-  if (style === null) return [GUIDE]
-  return style.rules === null ? [] : [style.rules]
-}
-
-/** The one-line answer of /cc-stretch:stretch, naming what Claude is sent. */
-function switchAnswer(isOn: boolean, style: StretchStyle | null): string {
+/** The one-line answer of /cc-stretch:stretch, naming where Claude's stretch rules come from. */
+function switchAnswer(isOn: boolean, style: string | null): string {
   if (!isOn) return 'Stretchtext off: Claude gets no stretch rules, and every stretch is drawn open.'
-  if (style === null) return 'Stretchtext on: Claude gets the phrase guide with each prompt you type.'
-  if (style.rules === null) return `Stretchtext on, but the output style ${style.name} has no stretch rules, so Claude gets none.`
-  return `Stretchtext on: Claude gets the rules from ${style.name} with each prompt you type.`
+  if (style !== null) return `Stretchtext on: the output style ${style} holds the rules.`
+  return 'Stretchtext on: Claude gets the phrase guide in the system prompt. On a setup with managed settings, Claude Code skips that hook.'
 }
 
 /** Drops the try, unless a save or a close holds the claim: a reset drawn before it began does nothing then. */
@@ -307,11 +299,11 @@ async function follow($: EngineInterface, href: string): Promise<void> {
 
 export const register: Register = (on, options) => {
   const baseLook = lookOf(options)
-  // Stretchtext is one switch: on, Claude is sent stretch rules and stretches are drawn closed; off,
-  // it is sent neither rules nor note, and every stretch already written is drawn open. The rules are
-  // the marker block of a cc-stretch output style while one is active, else the phrase guide. The
-  // session starts on under a cc-stretch style, else from the setting, and /cc-stretch:stretch
-  // switches it until the session ends.
+  // Stretchtext is one switch: on, Claude has stretch rules and stretches are drawn closed; off, it
+  // is sent neither the guide nor the note, and every stretch already written is drawn open. A
+  // cc-stretch output style holds its own rules; under any other style the phrase guide goes in the
+  // system prompt. The session starts on under a cc-stretch style, else from the setting, and
+  // /cc-stretch:stretch switches it until the session ends.
   const startsOn = options.startOn === true
   on('command.run', { command: 'cc-stretch:stretch' }, async ($, e) => {
     const asked = e.args.trim().toLowerCase()
@@ -425,10 +417,21 @@ export const register: Register = (on, options) => {
     return flush
   })
 
-  // The stretch rules ride with each prompt the reader types, beside the note on what they opened:
-  // rules in an output style alone do not get Claude to write stretches, and as of Claude Code 2.1.299
-  // to 2.1.303 a managed setup skips the prompt.compose hooks of a plugin a person installed, and
-  // runs its prompt.submit ones.
+  // The phrase guide goes in the system prompt while stretchtext is on and no cc-stretch output style,
+  // which holds its own rules, is active. As of Claude Code 2.1.299 to 2.1.303 a managed setup skips
+  // the prompt.compose hooks of a plugin a person installed (docs/BACKLOG.md, managed-setup-limit),
+  // and the guide is not sent around that.
+  on('prompt.compose', async ($, e, next) => {
+    const composed = await next(e)
+    if (e.surfaces.length === 0) return composed
+    if (!(await isOn($, startsOn)) || (await styleNow($)) !== null) return composed
+
+    return {
+      sections: [...composed.sections, { id: 'cc-stretch:guide', text: GUIDE, scope: 'session' }],
+    }
+  })
+
+  // The note on what the reader opened rides with each prompt they type, while stretchtext is on.
   on('prompt.submit', async ($, e, next) => {
     if (e.origin.kind !== 'composer') return next(e)
 
@@ -436,7 +439,7 @@ export const register: Register = (on, options) => {
     await update($, seen, () => [])
     await update($, newestReply, () => '')
     await update($, lettering, () => null)
-    const style = await resolveStyle($)
+    await resolveStyle($)
     if (!(await isOn($, startsOn))) return next(e)
 
     // A stretch that is not a link is drawn open, so it is neither opened nor unopened. Each is named
@@ -451,8 +454,7 @@ export const register: Register = (on, options) => {
           .map(stretch => openedOf(stretch, names))
       })
     const unopened = written.filter(stretch => !opened.some(was => isSameStretch(was, stretch)))
-    const context = [...(e.context ?? []), ...rulesFor(style)]
-    if (opened.length === 0 && unopened.length === 0) return next({ ...e, context })
+    if (opened.length === 0 && unopened.length === 0) return next(e)
 
     const quote = (list: OpenedStretch[]) => list.map(stretch => `"${stretch.name}"`).join(', ')
     // A prompt cannot tell whether the reply was drawn where clicks land, so with no clicks the
@@ -462,7 +464,7 @@ export const register: Register = (on, options) => {
         ? `Stretchtext: since your last reply the reader opened ${quote(opened)}.${unopened.length > 0 ? ` They did not open ${quote(unopened)}.` : ''}`
         : 'Stretchtext: no click on a stretch of your last reply was recorded. The reader may have read only the short forms; where clicks do not reach the plugin (the classic renderer, apps other than the terminal and the Claude desktop app), every stretch was drawn open.'
 
-    return next({ ...e, context: [...context, note] })
+    return next({ ...e, context: [...(e.context ?? []), note] })
   }).catch(($, e, next) => next(e))
 
   // The reply that says why stretches are open on the main screen: the first drawn there since the

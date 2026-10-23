@@ -5,10 +5,10 @@
 #   scripts/try [--style <name>|none] [claude arguments...]
 #
 # --style <name> runs the session under this checkout's output style output-styles/<name>.md
-# (cc-stretch:<name>, default bottom-line-stretch), whose marker block is sent with each prompt.
-# --style none keeps your own output style and sends the phrase guide instead. Every other argument
-# is passed on to claude: scripts/try --model sonnet. CC_STRETCH_TRY_DRY=1 prints the command
-# instead of running it.
+# (cc-stretch:<name>, default bottom-line-stretch), which holds its own stretch rules.
+# --style none keeps your own output style, and the phrase guide goes in the system prompt. Every
+# other argument is passed on to claude: scripts/try --model sonnet. CC_STRETCH_TRY_DRY=1 prints the
+# command instead of running it.
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

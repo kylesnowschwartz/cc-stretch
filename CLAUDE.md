@@ -18,16 +18,18 @@ and in time a guide chosen for each model Claude Code runs.
 
 ## Where each promise is kept
 
-- How Claude writes: `hooks/guide.ts`, sent with each typed prompt while stretchtext is on. Change
+- How Claude writes: `hooks/guide.ts`, added to the system prompt while stretchtext is on and no
+  cc-stretch output style is active; a setup with managed settings skips that hook
+  (`docs/BACKLOG.md`, managed-setup-limit), and the guide is not sent another way. Change
   it only through the guide bench (`bench/README.md`). A new way Claude gets stretchtext wrong first
   becomes a rule in `bench/rules.ts`, with examples that must fail and pass in
   `tests/bench.test.ts`; then the guide change that should fix it becomes a variant in
   `bench/guides.ts` and answers the bench's tasks beside the current guide, held-out tasks included.
 - How Claude writes under a cc-stretch output style (`output-styles/*.md`, chosen as
-  `cc-stretch:<file>`): the style holds the format, and `hooks/style.ts` sends its block between
-  `<!-- stretch:reminder -->` and `<!-- /stretch:reminder -->` with each typed prompt in place of
-  the guide, since rules in the style alone do not get Claude to write stretches. The style is read
-  at the session's start and with each typed prompt, and kept in plugin state for drawing.
+  `cc-stretch:<file>`): the style holds the format and its stretch rules, first in the file with a
+  worked example, and the guide is not added. `hooks/style.ts` reads the style's name at the
+  session's start and with each typed prompt and keeps it in plugin state: a cc-stretch style turns
+  stretchtext on and makes `motion` `auto` instant.
 - How a stretch is drawn: `hooks/layout.ts`, `hooks/grow.ts` and `hooks/reply.tsx`. While a
   stretch grows or shrinks, the words already on screen stay where they are.
 

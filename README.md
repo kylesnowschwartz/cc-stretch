@@ -36,17 +36,18 @@ short form is the section's finding. Choose it with `/output-style`, or in setti
 { "outputStyle": "cc-stretch:bottom-line-stretch" }
 ```
 
-| Output style | Sent with each prompt you type | Stretchtext at start |
+| Output style | Where Claude's stretch rules are | Stretchtext at start |
 | --- | --- | --- |
-| A cc-stretch style | The style's stretch rules | On |
-| Any other style, or none | The phrase guide | As `startOn` sets it |
+| A cc-stretch style | In the style | On |
+| Any other style, or none | The phrase guide, in the system prompt | As `startOn` sets it |
 
-- `/cc-stretch:stretch off` still turns stretchtext off: no rules are sent and every stretch is drawn
-  open. Its answer names what is sent while on.
-- To add a stretch style, put a file in `output-styles/`, with its stretch rules between the lines
-  `<!-- stretch:reminder -->` and `<!-- /stretch:reminder -->`. The plugin sends that block with
-  each prompt, because rules in an output style alone do not get Claude to write stretches. A
-  cc-stretch style with no such block gets no rules, and the transcript says so once a session.
+- `/cc-stretch:stretch off` still turns stretchtext off: the guide is not sent and every stretch is
+  drawn open. Its answer names where the rules are while on.
+- A setup with managed settings, or a Team or Enterprise account, skips the hook that puts the
+  phrase guide in the system prompt (see `managed-setup-limit` in `docs/BACKLOG.md`). A cc-stretch
+  style still carries its rules there, because they are in the style.
+- To add a stretch style, put a file in `output-styles/`. Put its stretch rules first in the file,
+  with a worked example of a reply that follows them.
 
 To update, run `claude plugin update cc-stretch@cc-stretch` in a shell, or open `/plugin`, find
 cc-stretch under Installed and choose Update now. As of Claude Code 2.1.302 a plugin from this
@@ -182,7 +183,7 @@ npm run typecheck   # the benchmark scripts
 
 `scripts/try` starts Claude Code with this checkout loaded, in fullscreen, with stretchtext on for
 that session, under the output style `cc-stretch:bottom-line-stretch`. `--style <name>` picks another
-style from `output-styles/`; `--style none` keeps your own style and sends the phrase guide. Other
+style from `output-styles/`; `--style none` keeps your own style and puts the phrase guide in the system prompt. Other
 arguments go to `claude`.
 
 The launch film in `film/` is made from a real recorded session: `film/take.mjs` drives Claude Code
