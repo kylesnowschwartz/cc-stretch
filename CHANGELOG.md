@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 — 2026-10-23
+
+- The output style `cc-stretch:bottom-line-stretch` collapses each section of a long reply under its
+  header to a one-line result, and keeps the closing Bottom line block outside every stretch. A
+  cc-stretch output style turns stretchtext on, and its own file holds the stretch rules, so no
+  rules are sent with a prompt.
+- `/cc-stretch:stretch [on|off]` switches stretchtext for the session, and the `startOn` setting
+  picks the default. While it is off, Claude gets no stretch rules and every stretch is drawn open.
+- The `motion` setting picks how a stretch opens: `auto` is instant under a cc-stretch output style.
+  A stretch that is a whole paragraph shows a `▸` or `▾` arrow.
+- A stretch closes on its code block's closing fence line, so a reply no longer cuts off after it.
+- `scripts/try` starts a session with this checkout and stretchtext on.
+
 ## 0.5.3 — 2026-10-21
 
 - cc-stretch loads again in Claude Code before 2.1.300, which the Claude desktop app can still
