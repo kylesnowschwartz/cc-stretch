@@ -21,6 +21,11 @@ restarting and resuming your session. If stretches still show open, see [Limits]
 Claude desktop app stretches are links: click one to open it in place, click `«` to close it. No
 setting needed.
 
+Stretchtext starts off: Claude is sent no stretchtext guide and any stretch is drawn open.
+`/cc-stretch:stretch` turns it on for the session, and `/cc-stretch:stretch off` turns it off again.
+To start every session with it on, turn on Stretchtext on at start in `/plugin`'s Configure options
+(the plugin setting `startOn`).
+
 To update, run `claude plugin update cc-stretch@cc-stretch` in a shell, or open `/plugin`, find
 cc-stretch under Installed and choose Update now. As of Claude Code 2.1.302 a plugin from this
 marketplace updates on its own only once you turn on auto-update for the marketplace in `/plugin`'s

@@ -1,8 +1,9 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 import { render } from '../bench/measure.ts'
 import { parse, stretches } from '../hooks/parse.ts'
+import { test } from './switched-on'
 
 // The benchmark measures what the reader sees, so its skim must be the text the terminal draws.
 

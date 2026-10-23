@@ -32,6 +32,11 @@ declare module 'claude-code' {
       lettering: { action: 'open' | 'close'; targets: { letter: string; member: string; key: string }[] } | null
       /** The style the toolbar is trying (marks, highlight: a hex colour, `tinted` or empty), drawn in place of the saved one until saved; null for none. */
       look: { marks: string[]; highlight: string } | null
+      /**
+       * Whether /cc-stretch:stretch turned stretchtext on or off for this session; null until it is
+       * run, while the `startOn` setting decides.
+       */
+      switched: boolean | null
       /** Whether /cc-stretch:style has the toolbar open. */
       toolbar: boolean
       /** Which action holds the toolbar's one-at-a-time claim, a save or a close; null while none does. */

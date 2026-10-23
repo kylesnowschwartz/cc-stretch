@@ -1,13 +1,15 @@
 import type { On, PromptChangeInput, PromptEditInput, RenderSurface, SessionMessage } from 'claude-code'
-import { describe, expect, mock, test } from 'claude-code/testing'
+import { describe, expect, mock, test as plainTest } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 import { grow } from '../hooks/grow'
+import { GUIDE } from '../hooks/guide'
 import { contrastOn } from '../hooks/contrast'
 import { DEFAULT_LOOK, lookOf, marksSetting } from '../hooks/look'
 import { hrefAt, layout, leadInOf, link, linkAt, namesOf, tint, widthOf, withLeadIns } from '../hooks/layout'
 import { closeAfter, hideLongForms, newStreamState, paragraphsOf, parse, stretches } from '../hooks/parse'
 import Reply from '../hooks/reply'
+import { test } from './switched-on'
 
 const REPLY = [
   'The build fails {{on a stale cache|because the cache key hashes only `package.json`{{, set in one file|, set in `ci/cache.ts`}}}}.',
@@ -27,13 +29,6 @@ const FIRST = 'paragraph-0'
 // The dark theme's colours for a closed stretch's tinted highlight, and for the words it adds once open, by place.
 const DEEP = ['#403002', '#2c2240', '#122623', '#361e16'] as const
 const SOFT = ['#ffdd77', '#d3bdff', '#9ac5c0', '#e9b4a3'] as const
-const COMPOSE = {
-  model: 'claude-opus-5-5',
-  promptModel: 'claude-opus-5-5',
-  tools: [],
-  outputStyle: null,
-  traits: [],
-} as const
 
 const mountReply = ($: Engine, viewport: typeof FULLSCREEN, text = REPLY, surface: 'terminal' | 'desktop' = 'terminal', requestId = 'reply-1') =>
   $.ui.mount({
@@ -1060,6 +1055,7 @@ test('a click inside a stretch shrinking shut opens nothing', async ($, on) => {
   await ui.advance(2000)
   await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
   expect(context).toEqual([
+    GUIDE,
     'Stretchtext: since your last reply the reader opened "on a stale cache". They did not open ", set in one file", "The fix is one line.".',
   ])
   await ui.unmount()
@@ -1078,6 +1074,7 @@ test('the note names a lone period by the words before it, and the one left clos
   await ui.advance(2000)
   await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
   expect(context).toEqual([
+    GUIDE,
     'Stretchtext: since your last reply the reader opened "The PR merged 3 days ago.". They did not open "The second one is approved.".',
   ])
   await ui.unmount()
@@ -1095,7 +1092,7 @@ test('the note tells apart two stretches written alike after different sentences
   await pressOn(ui, 'merged')
   await ui.advance(2000)
   await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
-  expect(context).toEqual(['Stretchtext: since your last reply the reader opened "It merged.". They did not open "It shipped.".'])
+  expect(context).toEqual([GUIDE, 'Stretchtext: since your last reply the reader opened "It merged.". They did not open "It shipped.".'])
   await ui.unmount()
 })
 
@@ -1395,7 +1392,7 @@ describe('desktop app', () => {
     const ui = await mountReply($, FULLSCREEN, text, 'desktop')
     await ui.press({ key: 'stretch', link: { href: linkTo('open', 'a stretch', text) } })
     await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
-    expect(context).toEqual(['Stretchtext: since your last reply the reader opened "a stretch".'])
+    expect(context).toEqual([GUIDE, 'Stretchtext: since your last reply the reader opened "a stretch".'])
     await ui.unmount()
   })
 
@@ -1416,6 +1413,7 @@ describe('desktop app', () => {
     await ui.press({ key: 'stretch', link: { href: linkTo('open', OUTER) } })
     await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
     expect(context).toEqual([
+      GUIDE,
       'Stretchtext: since your last reply the reader opened "on a stale cache". They did not open ", set in one file", "The fix is one line.".',
     ])
     await ui.unmount()
@@ -1454,12 +1452,107 @@ test('a stretch still streaming shows its short form and none of its markup', as
   await ui.unmount()
 })
 
-test('the system prompt carries the guide while something draws', async ($, on) => {
-  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude Code.', scope: 'shared' }] }))
-  const drawn = await $.prompt.compose({ ...COMPOSE, surfaces: ['terminal'] })
-  expect(drawn.sections.at(-1)?.id).toBe('cc-stretch:guide')
-  const headless = await $.prompt.compose({ ...COMPOSE, surfaces: [] })
-  expect(headless.sections.some(s => s.id === 'cc-stretch:guide')).toBe(false)
+describe('the stretchtext switch', () => {
+  /** /cc-stretch:stretch typed at the prompt, with `args` after it. */
+  const runStretch = async ($: Engine, args = '') =>
+    (await $.command.run({ command: 'cc-stretch:stretch', args, origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 100 } })).text
+  /** The context each typed prompt carries to the model, as the plugin leaves it; undefined for none. */
+  const contexts = (on: On, replies = [REPLY]) => {
+    on('session.messages', () => ({
+      value: [{ role: 'user', text: 'why does CI fail?', toolUses: [] }, ...replies.map(text => ({ role: 'assistant' as const, text, toolUses: [] }))],
+    }))
+    const sent: (readonly string[] | undefined)[] = []
+    on('prompt.submit', (_, e) => {
+      sent.push(e.context)
+      return { text: e.text, context: e.context }
+    })
+    return sent
+  }
+  const submit = ($: Engine) => $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
+
+  test('on, a typed prompt carries the guide, even after a reply with no stretch', async ($, on) => {
+    const sent = contexts(on, ['A plain reply.'])
+    await submit($)
+    expect(sent).toEqual([[GUIDE]])
+  })
+
+  test('on, a prompt the reader did not type carries no guide', async ($, on) => {
+    const sent = contexts(on)
+    await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'plugin', name: 'other' } })
+    expect(sent).toEqual([undefined])
+  })
+
+  plainTest('the setting left unset starts the session off: no guide, every stretch drawn open', async ($, on) => {
+    const sent = contexts(on)
+    await submit($)
+    expect(sent).toEqual([undefined])
+    const ui = await mountReply($, FULLSCREEN)
+    expect(await shown(ui)).toContain(', set in `ci/cache.ts`')
+    expect(await ui.find({ type: 'Client' })).toBeUndefined()
+    await ui.unmount()
+  })
+
+  test('the setting on starts the session on: the guide is sent, and stretches are drawn closed', async ($, on) => {
+    const sent = contexts(on)
+    await submit($)
+    expect(sent[0]?.[0]).toBe(GUIDE)
+    const ui = await mountReply($, FULLSCREEN)
+    expect(await textIn(ui)).toMatch(/^The build fails on a stale cache\.\n/)
+    await ui.unmount()
+  })
+
+  test('off, a typed prompt carries neither the guide nor the note on what the reader opened', async ($, on) => {
+    const sent = contexts(on)
+    const ui = await mountReply($, FULLSCREEN)
+    await pressOn(ui, 'on a stale cache')
+    await ui.advance(2000)
+    await ui.unmount()
+    expect(await runStretch($, 'off')).toBe('Stretchtext off: Claude gets no guide, and every stretch is drawn open.')
+    await submit($)
+    expect(sent).toEqual([undefined])
+  })
+
+  plainTest('with no argument the command switches, and on or off sets, each answered in one line', async $ => {
+    expect(await runStretch($)).toBe('Stretchtext on: Claude writes stretches from your next prompt.')
+    expect(await runStretch($)).toBe('Stretchtext off: Claude gets no guide, and every stretch is drawn open.')
+    expect(await runStretch($, ' ON ')).toBe('Stretchtext on: Claude writes stretches from your next prompt.')
+    expect(await runStretch($, 'on')).toBe('Stretchtext on: Claude writes stretches from your next prompt.')
+    expect(await runStretch($, 'maybe')).toBe('Usage: /cc-stretch:stretch [on|off]; with no argument it switches. Stretchtext is on.')
+    expect(await runStretch($, 'off')).toBe('Stretchtext off: Claude gets no guide, and every stretch is drawn open.')
+  })
+
+  plainTest('switched on, the session sends the guide although the setting starts it off', async ($, on) => {
+    const sent = contexts(on)
+    await runStretch($, 'on')
+    await submit($)
+    expect(sent[0]?.[0]).toBe(GUIDE)
+  })
+
+  test('off, every stretch is drawn open in fullscreen, on the main screen and in the desktop app, with no note why', async ($, on) => {
+    on('session.surfaces', () => ({ value: ['terminal'] }))
+    await runStretch($, 'off')
+    for (const [viewport, surface] of [[FULLSCREEN, 'terminal'], [MAIN_SCREEN, 'terminal'], [FULLSCREEN, 'desktop']] as const) {
+      const ui = await mountReply($, viewport, REPLY, surface)
+      expect(await shown(ui)).toContain(', set in `ci/cache.ts`')
+      expect(await shown(ui)).not.toContain(HREF)
+      expect(await shown(ui)).not.toContain('{{on a stale cache|')
+      expect(await ui.find({ type: 'Client' })).toBeUndefined()
+      expect(await hasNote(ui)).toBe(false)
+      await ui.unmount()
+    }
+  })
+
+  test('a reply on screen is drawn open when stretchtext goes off, and closed again when it comes back on', async $ => {
+    const ui = await mountReply($, FULLSCREEN)
+    expect(await textIn(ui)).toMatch(/^The build fails on a stale cache\.\n/)
+    await runStretch($, 'off')
+    await ui.advance(100)
+    expect(await shown(ui)).toContain(', set in `ci/cache.ts`')
+    await runStretch($, 'on')
+    await ui.advance(100)
+    expect(await textIn(ui)).toMatch(/^The build fails on a stale cache\.\n/)
+    await ui.unmount()
+  })
 })
 
 test('the next prompt tells the model which stretches were opened and which not', async ($, on) => {
@@ -1479,11 +1572,13 @@ test('the next prompt tells the model which stretches were opened and which not'
   await pressOn(ui, 'on a stale cache')
   await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
   expect(context).toEqual([
+    GUIDE,
     'Stretchtext: since your last reply the reader opened "on a stale cache". They did not open ", set in one file", "The fix is one line.".',
   ])
 
   await $.prompt.submit({ text: 'and?', wait: false, origin: { kind: 'composer' } })
   expect(context).toEqual([
+    GUIDE,
     'Stretchtext: no click on a stretch of your last reply was recorded. The reader may have read only the short forms; where clicks do not reach the plugin (the classic renderer, apps other than the terminal and the Claude desktop app), every stretch was drawn open.',
   ])
   await ui.unmount()
@@ -1707,6 +1802,7 @@ describe('keyboard', () => {
     await ui.advance(2000)
     await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
     expect(context).toEqual([
+      GUIDE,
       'Stretchtext: since your last reply the reader opened "on a stale cache". They did not open ", set in one file", "The fix is one line.".',
     ])
     await ui.unmount()
@@ -1743,6 +1839,7 @@ describe('keyboard', () => {
     await ui.advance(2000)
     await $.prompt.submit({ text: 'ok', wait: false, origin: { kind: 'composer' } })
     expect(context).toEqual([
+      GUIDE,
       'Stretchtext: since your last reply the reader opened "on a stale cache". They did not open ", set in one file", "The fix is one line.".',
     ])
     await ui.unmount()

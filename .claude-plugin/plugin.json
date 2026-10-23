@@ -4,6 +4,12 @@
   "description": "Stretchtext replies for Claude Code: short by default, each phrase grows in place when you click it",
   "types": "./types/index.d.ts",
   "userConfig": {
+    "startOn": {
+      "type": "boolean",
+      "title": "Stretchtext on at start",
+      "description": "Whether each session starts with stretchtext on: Claude is sent the stretchtext guide with each prompt you type, and stretches are drawn closed for you to open. Off, Claude is sent no guide and every stretch is drawn open. /cc-stretch:stretch switches it for the session.",
+      "default": false
+    },
     "marks": {
       "type": "string",
       "title": "Closed stretch marks",

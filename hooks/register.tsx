@@ -22,6 +22,7 @@ const newestReply = atom({ plugin: 'cc-stretch', key: 'newest' } as const, '')
 const askedStretch = atom({ plugin: 'cc-stretch', key: 'ask' } as const, null)
 const lettering = atom({ plugin: 'cc-stretch', key: 'lettering' } as const, null)
 const pickedLook = atom({ plugin: 'cc-stretch', key: 'look' } as const, null)
+const switched = atom({ plugin: 'cc-stretch', key: 'switched' } as const, null)
 const toolbarShown = atom({ plugin: 'cc-stretch', key: 'toolbar' } as const, false)
 /** Plugin state, not module state: as of Claude Code 2.1.302 each setting written reloads the plugin, and a save outlives the reload. */
 const toolbarHolder = atom({ plugin: 'cc-stretch', key: 'busy' } as const, null)
@@ -208,6 +209,11 @@ function saveLook($: EngineInterface, saved: Look): Promise<void> {
   })
 }
 
+/** Whether stretchtext is on: as /cc-stretch:stretch last set it this session, else `startsOn`, from the setting. */
+async function isOn($: EngineInterface, startsOn: boolean): Promise<boolean> {
+  return (await read($, switched)) ?? startsOn
+}
+
 /** Drops the try, unless a save or a close holds the claim: a reset drawn before it began does nothing then. */
 async function resetTry($: EngineInterface): Promise<void> {
   if ((await read($, toolbarHolder)) === null) await update($, pickedLook, () => null)
@@ -271,6 +277,18 @@ async function follow($: EngineInterface, href: string): Promise<void> {
 
 export const register: Register = (on, options) => {
   const baseLook = lookOf(options)
+  // Stretchtext is one switch: on, Claude is sent the guide and stretches are drawn closed; off, it is
+  // sent neither guide nor note, and every stretch already written is drawn open. The session starts
+  // from the setting, and /cc-stretch:stretch switches it until the session ends.
+  const startsOn = options.startOn === true
+  on('command.run', { command: 'cc-stretch:stretch' }, async ($, e) => {
+    const asked = e.args.trim().toLowerCase()
+    if (asked !== '' && asked !== 'on' && asked !== 'off') return { text: `Usage: /cc-stretch:stretch [on|off]; with no argument it switches. Stretchtext is ${(await isOn($, startsOn)) ? 'on' : 'off'}.` }
+    const turnsOn = asked === '' ? !(await isOn($, startsOn)) : asked === 'on'
+    await update($, switched, () => turnsOn)
+    return { text: turnsOn ? 'Stretchtext on: Claude writes stretches from your next prompt.' : 'Stretchtext off: Claude gets no guide, and every stretch is drawn open.' }
+  })
+
   // As of Claude Code 2.1.302, /cc-stretch:style is listed from commands/style.md and answered here;
   // Claude reads the file only when the hooks did not answer. It only shows the toolbar: the band
   // above the prompt has its own [-], which collapses it without the plugin knowing, so a toggle could
@@ -368,22 +386,18 @@ export const register: Register = (on, options) => {
     return flush
   })
 
-  on('prompt.compose', async ($, e, next) => {
-    const composed = await next(e)
-    if (e.surfaces.length === 0) return composed
-
-    return {
-      sections: [
-        ...composed.sections,
-        { id: 'cc-stretch:guide', text: GUIDE, scope: 'session' },
-      ],
-    }
-  })
-
+  // The guide rides with each prompt the reader types, beside the note on what they opened: as of
+  // Claude Code 2.1.299 to 2.1.303 a managed setup skips the prompt.compose hooks of a plugin a
+  // person installed, and runs its prompt.submit ones.
   on('prompt.submit', async ($, e, next) => {
     if (e.origin.kind !== 'composer') return next(e)
 
     const opened = await read($, seen)
+    await update($, seen, () => [])
+    await update($, newestReply, () => '')
+    await update($, lettering, () => null)
+    if (!(await isOn($, startsOn))) return next(e)
+
     // A stretch that is not a link is drawn open, so it is neither opened nor unopened. Each is named
     // as its paragraph draws it, where a lone period is named with the words before it.
     const written = paragraphsOf(lastReply(await $.session.messages()))
@@ -396,10 +410,8 @@ export const register: Register = (on, options) => {
           .map(stretch => openedOf(stretch, names))
       })
     const unopened = written.filter(stretch => !opened.some(was => isSameStretch(was, stretch)))
-    await update($, seen, () => [])
-    await update($, newestReply, () => '')
-    await update($, lettering, () => null)
-    if (opened.length === 0 && unopened.length === 0) return next(e)
+    const context = [...(e.context ?? []), GUIDE]
+    if (opened.length === 0 && unopened.length === 0) return next({ ...e, context })
 
     const quote = (list: OpenedStretch[]) => list.map(stretch => `"${stretch.name}"`).join(', ')
     // A prompt cannot tell whether the reply was drawn where clicks land, so with no clicks the
@@ -409,7 +421,7 @@ export const register: Register = (on, options) => {
         ? `Stretchtext: since your last reply the reader opened ${quote(opened)}.${unopened.length > 0 ? ` They did not open ${quote(unopened)}.` : ''}`
         : 'Stretchtext: no click on a stretch of your last reply was recorded. The reader may have read only the short forms; where clicks do not reach the plugin (the classic renderer, apps other than the terminal and the Claude desktop app), every stretch was drawn open.'
 
-    return next({ ...e, context: [...(e.context ?? []), note] })
+    return next({ ...e, context: [...context, note] })
   }).catch(($, e, next) => next(e))
 
   // The reply that says why stretches are open on the main screen: the first drawn there since the
@@ -432,9 +444,12 @@ export const register: Register = (on, options) => {
       if (all.length === 0) return next(e)
     }
 
+    // Off, every stretch is drawn open, as where a press is not known to land.
+    const isOff = !(await isOn($, startsOn))
+
     // The desktop app draws markdown links and hands a press on one to the plugin: the whole block is
     // one Markdown whose closed stretches are links that open in place, each open one ending in a «.
-    if (e.surface === 'desktop') {
+    if (e.surface === 'desktop' && !isOff) {
       const { Markdown } = $.ui.resolve(e)
       const open = memberOf(openStretches, { requestId: `${e.requestId}#desktop` })
       const links: string[] = []
@@ -459,7 +474,7 @@ export const register: Register = (on, options) => {
     }
 
     const marker = e.props.isFirstOfReply ? '⏺ ' : '  '
-    if (canPress(e)) {
+    if (!isOff && canPress(e)) {
       // A paragraph holding a stretch is drawn by a Client, on the screen's side; the rest is
       // Claude Code's own markdown.
       const { Box, Button, Client, Markdown, Text } = $.ui.resolve(e)
@@ -521,15 +536,16 @@ export const register: Register = (on, options) => {
     }
 
     // Where a press is not known to land, every stretch is drawn open and nothing is hidden; on the
-    // main screen the first such reply says why.
+    // main screen, while stretchtext is on, the first such reply says why.
     const { Box, Markdown, Text } = $.ui.resolve(e)
-    if (isMainScreen(e)) notedRequest ??= e.requestId
+    const isNoted = !isOff && isMainScreen(e)
+    if (isNoted) notedRequest ??= e.requestId
     return (
       <Box flexDirection="row">
         <Text>{marker}</Text>
         <Box flexDirection="column" flexShrink={1}>
           <Markdown text={writeOpen(parts)} />
-          {isMainScreen(e) && notedRequest === e.requestId && <Text dimColor>{MAIN_SCREEN_NOTE}</Text>}
+          {isNoted && notedRequest === e.requestId && <Text dimColor>{MAIN_SCREEN_NOTE}</Text>}
         </Box>
       </Box>
     )
