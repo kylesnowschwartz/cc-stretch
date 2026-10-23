@@ -34,9 +34,17 @@ declare module 'claude-code' {
       look: { marks: string[]; highlight: string } | null
       /**
        * Whether /cc-stretch:stretch turned stretchtext on or off for this session; null until it is
-       * run, while the `startOn` setting decides.
+       * run, while a cc-stretch output style, else the `startOn` setting, decides.
        */
       switched: boolean | null
+      /**
+       * The cc-stretch output style the session runs under, as last read at the session's start or a
+       * typed prompt: its name (`cc-stretch:<file>`) and the stretch rules its marker block holds, null
+       * when its file is missing or holds none; null under another style or none.
+       */
+      style: { name: string; rules: string | null } | null
+      /** Whether the person was shown, this session, that the cc-stretch style has no stretch rules. */
+      warned: boolean
       /** Whether /cc-stretch:style has the toolbar open. */
       toolbar: boolean
       /** Which action holds the toolbar's one-at-a-time claim, a save or a close; null while none does. */

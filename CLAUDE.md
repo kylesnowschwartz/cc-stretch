@@ -23,6 +23,11 @@ and in time a guide chosen for each model Claude Code runs.
   becomes a rule in `bench/rules.ts`, with examples that must fail and pass in
   `tests/bench.test.ts`; then the guide change that should fix it becomes a variant in
   `bench/guides.ts` and answers the bench's tasks beside the current guide, held-out tasks included.
+- How Claude writes under a cc-stretch output style (`output-styles/*.md`, chosen as
+  `cc-stretch:<file>`): the style holds the format, and `hooks/style.ts` sends its block between
+  `<!-- stretch:reminder -->` and `<!-- /stretch:reminder -->` with each typed prompt in place of
+  the guide, since rules in the style alone do not get Claude to write stretches. The style is read
+  at the session's start and with each typed prompt, and kept in plugin state for drawing.
 - How a stretch is drawn: `hooks/layout.ts`, `hooks/grow.ts` and `hooks/reply.tsx`. While a
   stretch grows or shrinks, the words already on screen stay where they are.
 

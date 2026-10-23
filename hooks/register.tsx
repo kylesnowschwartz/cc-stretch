@@ -2,6 +2,8 @@ import { atom, memberOf, read, update } from 'claude-code'
 import type { ClassicEventOf, ClassicResultOf, EngineInterface, Register, RenderInput, RenderNode, SessionMessage } from 'claude-code'
 
 import { GUIDE } from './guide'
+import { resolveStyle, styleNow } from './style'
+import type { StretchStyle } from './style'
 import { closeAfter, codeSpan, hideLongForms, isLinkable, isOpenable, KEY_SEPARATOR, newStreamState, paragraphsOf, parentOf, parse, stretches } from './parse'
 import type { Segment, StreamState, Stretch } from './parse'
 import { isWebLink, namesOf, openedOf, targetsIn } from './layout'
@@ -209,9 +211,27 @@ function saveLook($: EngineInterface, saved: Look): Promise<void> {
   })
 }
 
-/** Whether stretchtext is on: as /cc-stretch:stretch last set it this session, else `startsOn`, from the setting. */
+/**
+ * Whether stretchtext is on: as /cc-stretch:stretch last set it this session, else on under a
+ * cc-stretch output style, else `startsOn`, from the setting. It reads plugin state alone.
+ */
 async function isOn($: EngineInterface, startsOn: boolean): Promise<boolean> {
-  return (await read($, switched)) ?? startsOn
+  const [asked, style] = await Promise.all([read($, switched), styleNow($)])
+  return asked ?? (style !== null || startsOn)
+}
+
+/** What Claude is sent with each typed prompt while stretchtext is on: the style's rules, the phrase guide, or nothing. */
+function rulesFor(style: StretchStyle | null): string[] {
+  if (style === null) return [GUIDE]
+  return style.rules === null ? [] : [style.rules]
+}
+
+/** The one-line answer of /cc-stretch:stretch, naming what Claude is sent. */
+function switchAnswer(isOn: boolean, style: StretchStyle | null): string {
+  if (!isOn) return 'Stretchtext off: Claude gets no stretch rules, and every stretch is drawn open.'
+  if (style === null) return 'Stretchtext on: Claude gets the phrase guide with each prompt you type.'
+  if (style.rules === null) return `Stretchtext on, but the output style ${style.name} has no stretch rules, so Claude gets none.`
+  return `Stretchtext on: Claude gets the rules from ${style.name} with each prompt you type.`
 }
 
 /** Drops the try, unless a save or a close holds the claim: a reset drawn before it began does nothing then. */
@@ -277,17 +297,26 @@ async function follow($: EngineInterface, href: string): Promise<void> {
 
 export const register: Register = (on, options) => {
   const baseLook = lookOf(options)
-  // Stretchtext is one switch: on, Claude is sent the guide and stretches are drawn closed; off, it is
-  // sent neither guide nor note, and every stretch already written is drawn open. The session starts
-  // from the setting, and /cc-stretch:stretch switches it until the session ends.
+  // Stretchtext is one switch: on, Claude is sent stretch rules and stretches are drawn closed; off,
+  // it is sent neither rules nor note, and every stretch already written is drawn open. The rules are
+  // the marker block of a cc-stretch output style while one is active, else the phrase guide. The
+  // session starts on under a cc-stretch style, else from the setting, and /cc-stretch:stretch
+  // switches it until the session ends.
   const startsOn = options.startOn === true
   on('command.run', { command: 'cc-stretch:stretch' }, async ($, e) => {
     const asked = e.args.trim().toLowerCase()
+    const style = await resolveStyle($)
     if (asked !== '' && asked !== 'on' && asked !== 'off') return { text: `Usage: /cc-stretch:stretch [on|off]; with no argument it switches. Stretchtext is ${(await isOn($, startsOn)) ? 'on' : 'off'}.` }
     const turnsOn = asked === '' ? !(await isOn($, startsOn)) : asked === 'on'
     await update($, switched, () => turnsOn)
-    return { text: turnsOn ? 'Stretchtext on: Claude writes stretches from your next prompt.' : 'Stretchtext off: Claude gets no guide, and every stretch is drawn open.' }
+    return { text: switchAnswer(turnsOn, style) }
   })
+
+  // The style is read here and with each typed prompt, never while drawing: ui.render runs often.
+  on('session.start', async ($, e, next) => {
+    await resolveStyle($)
+    return next(e)
+  }).catch(($, e, next) => next(e))
 
   // As of Claude Code 2.1.302, /cc-stretch:style is listed from commands/style.md and answered here;
   // Claude reads the file only when the hooks did not answer. It only shows the toolbar: the band
@@ -386,9 +415,10 @@ export const register: Register = (on, options) => {
     return flush
   })
 
-  // The guide rides with each prompt the reader types, beside the note on what they opened: as of
-  // Claude Code 2.1.299 to 2.1.303 a managed setup skips the prompt.compose hooks of a plugin a
-  // person installed, and runs its prompt.submit ones.
+  // The stretch rules ride with each prompt the reader types, beside the note on what they opened:
+  // rules in an output style alone do not get Claude to write stretches, and as of Claude Code 2.1.299
+  // to 2.1.303 a managed setup skips the prompt.compose hooks of a plugin a person installed, and
+  // runs its prompt.submit ones.
   on('prompt.submit', async ($, e, next) => {
     if (e.origin.kind !== 'composer') return next(e)
 
@@ -396,6 +426,7 @@ export const register: Register = (on, options) => {
     await update($, seen, () => [])
     await update($, newestReply, () => '')
     await update($, lettering, () => null)
+    const style = await resolveStyle($)
     if (!(await isOn($, startsOn))) return next(e)
 
     // A stretch that is not a link is drawn open, so it is neither opened nor unopened. Each is named
@@ -410,7 +441,7 @@ export const register: Register = (on, options) => {
           .map(stretch => openedOf(stretch, names))
       })
     const unopened = written.filter(stretch => !opened.some(was => isSameStretch(was, stretch)))
-    const context = [...(e.context ?? []), GUIDE]
+    const context = [...(e.context ?? []), ...rulesFor(style)]
     if (opened.length === 0 && unopened.length === 0) return next({ ...e, context })
 
     const quote = (list: OpenedStretch[]) => list.map(stretch => `"${stretch.name}"`).join(', ')

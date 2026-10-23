@@ -26,6 +26,28 @@ Stretchtext starts off: Claude is sent no stretchtext guide and any stretch is d
 To start every session with it on, turn on Stretchtext on at start in `/plugin`'s Configure options
 (the plugin setting `startOn`).
 
+### The bottom-line-stretch output style
+
+The plugin ships an output style, `cc-stretch:bottom-line-stretch`. Under it Claude ends a long reply
+with a visible **Bottom line:** block, and collapses each section of the body into one stretch whose
+short form is the section's finding. Choose it with `/output-style`, or in settings:
+
+```json
+{ "outputStyle": "cc-stretch:bottom-line-stretch" }
+```
+
+| Output style | Sent with each prompt you type | Stretchtext at start |
+| --- | --- | --- |
+| A cc-stretch style | The style's stretch rules | On |
+| Any other style, or none | The phrase guide | As `startOn` sets it |
+
+- `/cc-stretch:stretch off` still turns stretchtext off: no rules are sent and every stretch is drawn
+  open. Its answer names what is sent while on.
+- To add a stretch style, put a file in `output-styles/`, with its stretch rules between the lines
+  `<!-- stretch:reminder -->` and `<!-- /stretch:reminder -->`. The plugin sends that block with
+  each prompt, because rules in an output style alone do not get Claude to write stretches. A
+  cc-stretch style with no such block gets no rules, and the transcript says so once a session.
+
 To update, run `claude plugin update cc-stretch@cc-stretch` in a shell, or open `/plugin`, find
 cc-stretch under Installed and choose Update now. As of Claude Code 2.1.302 a plugin from this
 marketplace updates on its own only once you turn on auto-update for the marketplace in `/plugin`'s
@@ -147,7 +169,9 @@ npm run typecheck   # the benchmark scripts
 ```
 
 `scripts/try` starts Claude Code with this checkout loaded, in fullscreen, with stretchtext on for
-that session; arguments after it go to `claude`.
+that session, under the output style `cc-stretch:bottom-line-stretch`. `--style <name>` picks another
+style from `output-styles/`; `--style none` keeps your own style and sends the phrase guide. Other
+arguments go to `claude`.
 
 The launch film in `film/` is made from a real recorded session: `film/take.mjs` drives Claude Code
 in a WezTerm pane and records its screen, and `film/compose.mjs` renders the film. Each release from
