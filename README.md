@@ -146,6 +146,9 @@ npm test            # claude plugin validate . && claude plugin test .
 npm run typecheck   # the benchmark scripts
 ```
 
+`scripts/try` starts Claude Code with this checkout loaded, in fullscreen, with stretchtext on for
+that session; arguments after it go to `claude`.
+
 The launch film in `film/` is made from a real recorded session: `film/take.mjs` drives Claude Code
 in a WezTerm pane and records its screen, and `film/compose.mjs` renders the film. Each release from
 0.4.0 on has a film of its own: `film/releases/<version>/` holds its take script and cut, and
