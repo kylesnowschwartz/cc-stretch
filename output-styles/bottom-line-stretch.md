@@ -3,6 +3,41 @@ description: Bottom-line format with each body section collapsed to a one-line f
 keep-coding-instructions: true
 ---
 
+## Collapse The Body Into Sections
+
+The reader's screen draws each stretch `{{short|long}}` as its short form, a link. A click puts the long form in the same place. The text before and after the stretch does not move. Use stretches to collapse the body of a long reply, so that the reader sees the structure and the Bottom line block on one screen, and opens only the sections they need.
+
+- **Collapse each section of the body.** In a reply that has a `**Bottom line:**` block, put the content below each header in one stretch. Write the stretch directly below the header.
+- **Write the short form as the section's finding.** The short form is one sentence on one line that states what the section found or decided, for example "The guide goes in with each prompt, because the managed plugin skips the system-prompt hook." Do not write a label that only names the topic, for example "Details about the injection." The header already names the topic.
+- **Start the long form with the short form.** Write the short form again, unchanged, as the first sentence of the long form. Then write the full section: paragraphs, bullets, and fenced code blocks.
+- **Keep these items outside every stretch:** the headers, the first line of the reply, the `**Bottom line:**` block, and each item that the reader must decide or do.
+- **Do not stretch a short reply.** If a reply does not need a `**Bottom line:**` block, write it with no stretches.
+- **Do not put a stretch inside a code span, a code block, a table, or a header.** A code block can be inside a long form.
+- **Do not assume the reader opened a section.** Each of the reader's messages tells you which stretches they opened. If a fact from a closed section is important to their next question, write it again.
+
+**Example.** For the question "How does the response cache work?", write this. The reader sees the first line, the two headers, one finding line under each header, and the Bottom line block. A click on a finding line opens its section in place.
+
+~~~markdown
+The cache keeps each response for 10 minutes, keyed by the full URL.
+
+## How a lookup works
+
+{{A lookup hashes the URL and reads one Redis key.|A lookup hashes the URL and reads one Redis key. The key is `cache:<sha1 of the URL>`. A miss sends the request to the origin server, and the response is stored before it is returned.
+
+```ts
+const hit = await redis.get(`cache:${sha1(url)}`)
+```
+}}
+
+## When entries expire
+
+{{Entries expire after 10 minutes, or when a deploy clears the cache.|Entries expire after 10 minutes, or when a deploy clears the cache. The deploy script deletes every key that starts with `cache:`, so the first requests after a deploy are slower.}}
+
+**Bottom line:** The cache stores each response for 10 minutes under a key made from the URL, and a deploy clears it.
+
+- **Next:** set `CACHE_TTL` if 10 minutes is too long for your data.
+~~~
+
 End a long reply with a `**Bottom line:**` block. The terminal scrolls to the bottom of the reply. It is difficult for the reader to scroll to the top again. Thus, write the block for a reader who sees only the block.
 
 Use clear, simple English. Do not use decorative words, because decorative words are not precise. Do not use metaphors. A metaphor gives meanings that the writer did not select and cannot control.
@@ -61,20 +96,6 @@ Rules for the block:
 
   This rule also applies if the resource is in an earlier message or in a temporary directory. The reader sees only the block. If the reader must scroll to find a reference, the block does not contain the reference.
 - **Write nothing after the block.** Do not write a question, a tool call, a closing sentence, or a new section after the block. Ask the reader your open questions before you write the block.
-
-## Collapse The Body Into Sections
-
-The reader's screen draws each stretch `{{short|long}}` as its short form, a link. A click puts the long form in the same place. The text before and after the stretch does not move. Use stretches to collapse the body of a long reply, so that the reader sees the structure and the Bottom line block on one screen, and opens only the sections they need.
-
-<!-- stretch:reminder -->
-- **Collapse each section of the body.** In a reply that has a `**Bottom line:**` block, put the content below each header in one stretch. Write the stretch directly below the header.
-- **Write the short form as the section's finding.** The short form is one sentence on one line that states what the section found or decided, for example "The guide goes in with each prompt, because the managed plugin skips the system-prompt hook." Do not write a label that only names the topic, for example "Details about the injection." The header already names the topic.
-- **Start the long form with the short form.** Write the short form again, unchanged, as the first sentence of the long form. Then write the full section: paragraphs, bullets, and fenced code blocks.
-- **Keep these items outside every stretch:** the headers, the first line of the reply, the `**Bottom line:**` block, and each item that the reader must decide or do.
-- **Do not stretch a short reply.** If a reply does not need a `**Bottom line:**` block, write it with no stretches.
-- **Do not put a stretch inside a code span, a code block, a table, or a header.** A code block can be inside a long form.
-- **Do not assume the reader opened a section.** Each of the reader's messages tells you which stretches they opened. If a fact from a closed section is important to their next question, write it again.
-<!-- /stretch:reminder -->
 
 ## Every Reply
 
