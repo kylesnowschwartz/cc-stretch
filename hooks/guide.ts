@@ -10,7 +10,7 @@ The reader's screen draws each stretch \`{{short|long}}\` in your reply as its s
 - The long form must read correctly in the short form's place: a phrase stretches into a clause, a sentence into a paragraph, a paragraph into several.
 - Stretches nest: a long form may hold further stretches, each a further level of depth.
 - The short form is plain inline text on one line. Never put a stretch inside a code span, a code block, a table or a heading.
-- If other instructions require a closing block, such as a status block, make it the reply's last stretch, its short form a one-line gist of the block.
+- If other instructions require a closing block, such as a status block, keep it outside every stretch, as the reply's last text, so the reader sees it without a click. A line in the block may stretch a detail, but its label and anything the reader must decide or do stay plain text.
 - A reply that is already short needs no stretches.
 
 With each of the reader's messages you are told which stretches they opened. Do not assume they read a long form they did not open; if it matters to what they asked, say it again.`

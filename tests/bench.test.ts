@@ -137,17 +137,18 @@ describe('layout rules', () => {
     ])
   })
 
-  test('closing-block-last: a required closing block is the last stretch', async () => {
+  test('closing-block-visible: a required closing block shows without a click, as the last text', async () => {
     const block = '---\nDone: the parser.\nNext: the export.\n---'
-    cases('closing-block-last', { closing: 'End with a status block.' }, [
-      `The parser is merged.\n\n${block}`,
-      `The parser is merged.\n\n{{Status: parser done.|\n${block}}}\n\nThat is all.`,
-      'The parser is merged.\n\n---\n{{Status: parser done.|Done: the parser.\nNext: the export.}}',
-      'The parser is merged.\n\n{{Status: parser done.|Done: the parser.\nNext: the export.}}\n---',
-      'The parser is merged.\n\n---\n{{Status: parser done.|Done: the parser.\nNext: the export.}}\n---\nThat is all.',
-    ], [
+    cases('closing-block-visible', { closing: 'End with a status block.' }, [
+      'The parser is merged.',
       `The parser is merged.\n\n{{Status: parser done, export next.|\n${block}}}`,
       'The parser is merged.\n\n---\n{{Status: parser done.|Done: the parser.\nNext: the export.}}\n---',
+      `The parser is merged.\n\n${block}\n\nThat is all.`,
+      'The parser is merged.\n\n---\nDone: the parser.\n{{Next: the export.|Next: the export, after the review.}}\n---',
+    ], [
+      `The parser is merged.\n\n${block}`,
+      `{{The parser is merged.|The parser is merged, with its tests.}}\n\n${block}`,
+      'The parser is merged.\n\n---\nDone: {{the parser.|the parser, with its tests.}}\nNext: the export.\n---',
     ])
   })
 

@@ -19,7 +19,7 @@ export type RuleId =
   | 'not-in-heading-or-table'
   | 'no-stretch-in-short-reply'
   | 'items-stay-visible'
-  | 'closing-block-last'
+  | 'closing-block-visible'
 
 /** One rule's verdict on one answer, with what broke it. */
 export type RuleVerdict = { rule: RuleId; holds: boolean; evidence: string }
@@ -110,21 +110,19 @@ export const RULES: readonly Rule[] = [
     breach: (reply, task) => missingItems(reply, task.items ?? []),
   },
   {
-    id: 'closing-block-last',
-    bullet: "If other instructions require a closing block, make it the reply's last stretch.",
+    id: 'closing-block-visible',
+    bullet: 'If other instructions require a closing block, keep it outside every stretch, as the reply’s last text.',
     appliesTo: task => task.closing !== undefined,
-    breach: ({ parts }) => {
-      const at = parts.findLastIndex(part => typeof part !== 'string')
-      const last = parts[at]
-      if (last === undefined || typeof last === 'string') return 'the reply does not end in a stretch'
-      const tail = parts.slice(at + 1).flatMap(part => (typeof part === 'string' ? part.split('\n') : []))
-      if (!tail.every(line => line.trim() === '' || isRule(line))) return 'text follows the closing stretch'
-      if (drawnAs(last) !== 'link') return `the reply ends in ${quoted(last.short)}, which is not a link`
-      if (holdsRuledBlock(draw(last.long ?? [], 'all'))) return undefined
-      // The block's separators can frame the final stretch without becoming part of its content.
-      const before = parts[at - 1]
-      const framed = typeof before === 'string' && isRule(before.trimEnd().split('\n').at(-1) ?? '') && tail.some(isRule)
-      return framed ? undefined : `the last stretch, ${quoted(last.short)}, holds no block between two rules`
+    breach: ({ skim }) => {
+      const rules = skim.flatMap((line, i) => (isRule(unmarked(line)) ? [i] : []))
+      const [open, close] = rules.slice(-2)
+      if (open === undefined || close === undefined) return 'the skim shows no block between two rules'
+      if (skim.slice(close + 1).some(line => unmarked(line).trim() !== '')) return 'text follows the closing block'
+      const block = skim.slice(open + 1, close).filter(line => unmarked(line).trim() !== '')
+      if (block.length === 0) return 'the closing block is empty in the skim'
+      // A line may hold a link for detail, but its own words must show without a click.
+      const linkOnly = block.find(line => words(line.replace(LINKED, '')) === 0)
+      return linkOnly && `the closing block line ${quoted(unmarked(linkOnly))} is only a link`
     },
   },
 ]
@@ -141,6 +139,8 @@ export function verdictsOf(text: string, task: Layout): RuleVerdict[] {
 // Each link a line shows is marked by its index in `links` around its text.
 const MARK = /⟪(\d+)⟫/
 const unmarked = (line: string) => line.replace(/⟪\/?\d+⟫/g, '')
+// A marked link with its drawn text.
+const LINKED = /⟪(\d+)⟫[\s\S]*?⟪\/\1⟫/g
 
 function read(text: string): Read {
   const parts = parse(text)

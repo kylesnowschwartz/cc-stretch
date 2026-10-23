@@ -20,7 +20,7 @@ export type Task = {
   items?: string[][]
   /** A good answer is short enough to need no stretch. */
   needsNoStretch?: true
-  /** The person's instruction that requires a closing block, which the answer must make its last stretch. */
+  /** The person's instruction that requires a closing block, which the answer must keep outside every stretch, as its last text. */
   closing?: string
   /** Kept out of choosing a guide. */
   heldOut?: true
