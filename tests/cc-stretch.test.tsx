@@ -2,7 +2,7 @@ import type { On, PromptChangeInput, PromptEditInput, RenderSurface, SessionMess
 import { describe, expect, mock, test as plainTest } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
-import { grow } from '../hooks/grow'
+import { durationOf, FAST_MS, grow } from '../hooks/grow'
 import { GUIDE } from '../hooks/guide'
 import { contrastOn } from '../hooks/contrast'
 import { DEFAULT_LOOK, lookOf, marksSetting } from '../hooks/look'
@@ -1688,6 +1688,76 @@ describe('the stretchtext switch', () => {
       expect(await textIn(ui)).toMatch(/^The build fails on a stale cache\.\n/)
       await ui.unmount()
     })
+  })
+})
+
+describe('motion', () => {
+  const LONG = 'because the cache key hashes only'
+  /** Whether the first stretch of REPLY is drawn fully open: its long form, and its « after it. */
+  const isOpen = async (ui: Mounted) => {
+    const text = await textIn(ui)
+    return text.includes(LONG) && text.includes('«')
+  }
+  /** Runs the session under a cc-stretch output style whose file holds a marker block. */
+  const underSectionStyle = async ($: Engine, on: On) => {
+    on('settings.read', () => ({ value: { outputStyle: 'cc-stretch:sections' } }))
+    on('fs.read', () => ({ value: '<!-- stretch:reminder -->\n- Collapse each section.\n<!-- /stretch:reminder -->' }))
+    on('session.start', (_, e) => ({ cwd: e.cwd }))
+    await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+  }
+
+  test('grow takes 0.45 s and more for each word, up to 1.4 s; fast takes FAST_MS; instant takes none', async () => {
+    const long = parse('{{a|one two three four five six seven}}').flatMap(part => (typeof part === 'string' ? [] : (part.long ?? [])))
+    expect(durationOf('grow', long)).toBe(1000 * (0.45 + 7 / 70))
+    expect(durationOf('grow', parse('word '.repeat(200)))).toBe(1400)
+    expect(durationOf('fast', long)).toBe(200)
+    expect(FAST_MS).toBe(200)
+    expect(durationOf('instant', long)).toBe(0)
+  })
+
+  for (const [motion, partway, whole] of [['grow', 300, 2000], ['fast', 100, 250]] as const) {
+    test(`${motion} grows a stretch open over its time`, { options: { motion } }, async $ => {
+      const ui = await mountReply($, FULLSCREEN)
+      await pressOn(ui, 'on a stale cache')
+      await ui.advance(partway)
+      expect(await isOpen(ui)).toBe(false)
+      await ui.advance(whole)
+      expect(await isOpen(ui)).toBe(true)
+      await ui.unmount()
+    })
+  }
+
+  test('instant draws a stretch open with its « on the next frame, and closed again on the next', { options: { motion: 'instant' } }, async $ => {
+    const ui = await mountReply($, FULLSCREEN)
+    await pressOn(ui, 'on a stale cache')
+    await ui.advance(16)
+    expect(await isOpen(ui)).toBe(true)
+    await pressOn(ui, '«')
+    await ui.advance(16)
+    expect(await textIn(ui)).toMatch(/^The build fails on a stale cache\.\n/)
+    await ui.unmount()
+  })
+
+  test('auto is instant under a cc-stretch output style', async ($, on) => {
+    await underSectionStyle($, on)
+    const ui = await mountReply($, FULLSCREEN)
+    await pressOn(ui, 'on a stale cache')
+    await ui.advance(16)
+    expect(await isOpen(ui)).toBe(true)
+    await ui.unmount()
+  })
+
+  test('auto grows under any other output style', async ($, on) => {
+    on('settings.read', () => ({ value: { outputStyle: 'Explanatory' } }))
+    on('session.start', (_, e) => ({ cwd: e.cwd }))
+    await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+    const ui = await mountReply($, FULLSCREEN)
+    await pressOn(ui, 'on a stale cache')
+    await ui.advance(16)
+    expect(await isOpen(ui)).toBe(false)
+    await ui.advance(2000)
+    expect(await isOpen(ui)).toBe(true)
+    await ui.unmount()
   })
 })
 

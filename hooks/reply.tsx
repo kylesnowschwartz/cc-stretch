@@ -1,6 +1,7 @@
 import type { ClientModule, ClientPointerEvent, ClientSurface, TextProps } from 'claude-code'
 
-import { grow, lengthOf } from './grow'
+import { durationOf, grow } from './grow'
+import type { Motion } from './grow'
 import { continuationOf, hrefAt, isMarkup, isWebLink, layout, link, linkAt, namesOf, openedOf, targetsIn, tint, widthOf, withLeadIns } from './layout'
 import type { Action, OpenedStretch, Row, Run } from './layout'
 import { closeAfter, isLinkable, KEY_SEPARATOR, parse } from './parse'
@@ -28,8 +29,8 @@ type Letters = { action: Action; keys: Record<string, string> }
 
 /**
  * The paragraph, the stretches the reader already has open in it, the tint of each, the last ask, its
- * letters, how pressable phrases look, and under the tinted highlight each stretch's own highlight, by
- * key, in place of the look's.
+ * letters, how pressable phrases look, under the tinted highlight each stretch's own highlight, by
+ * key, in place of the look's, and how a stretch opens and closes.
  */
 export type ReplyProps = {
   text: string
@@ -39,6 +40,7 @@ export type ReplyProps = {
   letters: Letters | null
   look?: DrawnLook
   highlights: Record<string, Hex>
+  motion?: Motion
 }
 
 /**
@@ -101,6 +103,8 @@ const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const drawn = new WeakMap<object, { laid: Row[]; rows: Row[]; segments: Segment[] }>()
 // The last ask each instance was handed, acted on at its next frame rather than while drawing.
 const asks = new WeakMap<object, Ask>()
+// How each instance last drawn opens and closes a stretch.
+const motions = new WeakMap<object, Motion>()
 // The last press each instance saw, where and when it went down, and the stretch whose lead-in words
 // it went down on, if any, so the next press soon after, close by and on the same words makes a
 // double-click; a quick third press, measured from the second, picks the word again. It is dropped
@@ -127,6 +131,7 @@ const Reply: ClientModule<ReplyProps, State> = (props, surface) => {
   const ask = props.ask ?? null
   const letters = props.letters ?? null
   if (ask !== null) asks.set(surface, ask)
+  motions.set(surface, props.motion ?? 'grow')
   const state = surface.state ?? fresh
   const segments = parse(props.text)
   // Read through Maps, which hold own keys only: a stretch keyed `constructor` must not find Object's.
@@ -481,12 +486,18 @@ function openOrClose(surface: ClientSurface<State>, action: Action, key: string,
   const open = state.growth !== null && !state.growth.isOpening ? closed(state.open, state.growth.key) : state.open
   const stretch = targetsIn(shown.segments, open, action).find(one => one.key === key)
   if (stretch?.long === undefined) return false
-  const duration = 1000 * Math.min(1.4, 0.45 + lengthOf(stretch.long) / 70)
+  const duration = durationOf(motions.get(surface) ?? 'grow', stretch.long)
   const acted = asked ?? state.asked
   if (action === 'open') {
     const next = [...open.filter(k => k !== stretch.key), stretch.key]
-    surface.setState({ open: next, growth: { key: stretch.key, isOpening: true, progress: 0, duration }, asked: acted, selection: null })
+    // With no time to grow over, the stretch is drawn open at once.
+    const growth = duration === 0 ? null : { key: stretch.key, isOpening: true, progress: 0, duration }
+    surface.setState({ open: next, growth, asked: acted, selection: null })
     surface.post({ open: next, opened: { ...openedOf(stretch, namesOf(shown.segments)), key: stretch.key } } satisfies ReplyPost)
+  } else if (duration === 0) {
+    const next = closed(open, stretch.key)
+    surface.setState({ open: next, growth: null, asked: acted, selection: null })
+    surface.post({ open: next } satisfies ReplyPost)
   } else {
     surface.setState({ open, growth: { key: stretch.key, isOpening: false, progress: 1, duration }, asked: acted, selection: null })
   }

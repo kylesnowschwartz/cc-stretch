@@ -126,6 +126,15 @@ never lose your place.
   and `highlight`, which as of Claude Code 2.1.302 `/plugin`'s Configure options also change;
   `close` puts the toolbar away and drops a style you tried but did not save. In the Claude desktop
   app, where cc-stretch draws stretches as links, there is no toolbar.
+- **The motion is yours to pick.** In the terminal's fullscreen layout a stretch grows open: its
+  words arrive around the short form's words. The plugin setting `motion` sets how:
+
+  | `motion` | Opening and closing |
+  | --- | --- |
+  | `grow` | Word by word, over 0.45 to 1.4 seconds, longer for a longer long form |
+  | `fast` | Word by word, over 0.2 seconds |
+  | `instant` | At once |
+  | `auto` (default) | `instant` under a cc-stretch output style, `grow` under any other |
 
 ## Limits
 

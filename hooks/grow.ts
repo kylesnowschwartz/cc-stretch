@@ -80,6 +80,22 @@ export function growthOf(short: string, long: Segment[]): Record<Side, number> &
   return counts
 }
 
+/** How a stretch opens and closes: word by word around its short form, the same quickly, or at once. */
+export type Motion = 'grow' | 'fast' | 'instant'
+
+/** How long a `fast` growth or shrink takes, in milliseconds, whatever the long form's length. */
+export const FAST_MS = 200
+
+/**
+ * How long `long` takes to grow or shrink, in milliseconds: under `grow` 0.45 s and more for each
+ * word, up to 1.4 s; under `fast` FAST_MS; under `instant` none, the end drawn at once.
+ */
+export function durationOf(motion: Motion, long: Segment[]): number {
+  if (motion === 'instant') return 0
+  if (motion === 'fast') return FAST_MS
+  return 1000 * Math.min(1.4, 0.45 + lengthOf(long) / 70)
+}
+
 /** How many words and nested stretches a growth adds, to pace it. */
 export function lengthOf(long: Segment[]): number {
   return tokenize(long).filter(token => token.kind !== 'space').length

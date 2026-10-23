@@ -4,6 +4,7 @@ import type { ClassicEventOf, ClassicResultOf, EngineInterface, Register, Render
 import { GUIDE } from './guide'
 import { resolveStyle, styleNow } from './style'
 import type { StretchStyle } from './style'
+import type { Motion } from './grow'
 import { closeAfter, codeSpan, hideLongForms, isLinkable, isOpenable, KEY_SEPARATOR, newStreamState, paragraphsOf, parentOf, parse, stretches } from './parse'
 import type { Segment, StreamState, Stretch } from './parse'
 import { isWebLink, namesOf, openedOf, targetsIn } from './layout'
@@ -218,6 +219,15 @@ function saveLook($: EngineInterface, saved: Look): Promise<void> {
 async function isOn($: EngineInterface, startsOn: boolean): Promise<boolean> {
   const [asked, style] = await Promise.all([read($, switched), styleNow($)])
   return asked ?? (style !== null || startsOn)
+}
+
+/**
+ * How a stretch opens and closes, from the `motion` setting: as set, or under `auto` at once while a
+ * cc-stretch output style is active, whose sections the reader opens whole, else growing.
+ */
+function motionFor(setting: unknown, style: StretchStyle | null): Motion {
+  if (setting === 'grow' || setting === 'fast' || setting === 'instant') return setting
+  return style === null ? 'grow' : 'instant'
 }
 
 /** What Claude is sent with each typed prompt while stretchtext is on: the style's rules, the phrase guide, or nothing. */
@@ -509,12 +519,14 @@ export const register: Register = (on, options) => {
       // A paragraph holding a stretch is drawn by a Client, on the screen's side; the rest is
       // Claude Code's own markdown.
       const { Box, Button, Client, Markdown, Text } = $.ui.resolve(e)
-      const [{ order, count }, newest, shown, picked] = await Promise.all([
+      const [{ order, count }, newest, shown, picked, style] = await Promise.all([
         read($, memberOf(stretchOrder, { requestId: e.requestId })),
         read($, newestReply),
         read($, lettering),
         read($, pickedLook),
+        styleNow($),
       ])
+      const motion = motionFor(options.motion, style)
       const look = storedLook(picked) ?? baseLook
       const isTinted = look.highlight === TINTED
       // The theme matters only once a stretch in this reply is drawn in its colour: open, or with the tinted highlight.
@@ -544,6 +556,7 @@ export const register: Register = (on, options) => {
             letters: shown === null ? null : { action: shown.action, keys },
             look: drawnLook,
             highlights: placed === undefined ? {} : highlightsOf(placed, palette),
+            motion,
           }
           return <Client key={key} module="./reply.tsx" props={props} width="100%" />
         }),
