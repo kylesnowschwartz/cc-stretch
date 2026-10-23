@@ -33,8 +33,8 @@ export function styleNow($: EngineInterface): Promise<StretchStyle | null> {
 /**
  * Reads the active output style from the merged settings and, for a cc-stretch one, the rules in its
  * file, keeps both in plugin state for drawing, and returns them. A cc-stretch style with no rules
- * is told to the person in one transcript line, once a session. A settings read that fails counts as
- * no style.
+ * is told to the person in one transcript line, once a session; as of Claude Code 2.1.309 the line
+ * is drawn after the plugin's name. A settings read that fails counts as no style.
  */
 export async function resolveStyle($: EngineInterface): Promise<StretchStyle | null> {
   const id = await $.settings.read({ key: 'outputStyle' }).catch(() => undefined)
@@ -42,7 +42,7 @@ export async function resolveStyle($: EngineInterface): Promise<StretchStyle | n
   await update($, activeStyle, () => style)
   if (style !== null && style.rules === null && !(await read($, warned))) {
     await update($, warned, () => true)
-    $.ui.log(`cc-stretch: the output style ${style.name} has no ${OPENING} block in output-styles/${style.name.slice(STYLE_PREFIX.length)}.md, so Claude gets no stretch rules.`)
+    $.ui.log(`the output style ${style.name} has no ${OPENING} block in output-styles/${style.name.slice(STYLE_PREFIX.length)}.md, so Claude gets no stretch rules.`)
   }
   return style
 }

@@ -1659,7 +1659,7 @@ describe('the stretchtext switch', () => {
         await submit($)
         await submit($)
         expect(sent).toEqual([[], []])
-        expect(lines).toEqual(['cc-stretch: the output style cc-stretch:plain has no <!-- stretch:reminder --> block in output-styles/plain.md, so Claude gets no stretch rules.'])
+        expect(lines).toEqual(['the output style cc-stretch:plain has no <!-- stretch:reminder --> block in output-styles/plain.md, so Claude gets no stretch rules.'])
         expect(await runStretch($, 'on')).toBe('Stretchtext on, but the output style cc-stretch:plain has no stretch rules, so Claude gets none.')
       })
     }
