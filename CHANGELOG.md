@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.4 — 2026-10-24
+
+- When a stretch's long form ends in a code block and Claude puts the stretch's closing braces on
+  the block's closing line (```` ```}} ````), the stretch closes there. Before, the block and the
+  stretch stayed open to the end of the reply, so in the terminal's fullscreen layout nothing after
+  that stretch was drawn ([#21](https://github.com/pro-vi/cc-stretch/issues/21)). Based on a commit
+  by @kylesnowschwartz.
+
 ## 0.5.3 — 2026-10-21
 
 - cc-stretch loads again in Claude Code before 2.1.300, which the Claude desktop app can still
