@@ -230,9 +230,10 @@ function motionFor(setting: unknown, style: string | null): Motion {
 }
 
 /** The one-line answer of /cc-stretch:stretch, naming where Claude's stretch rules come from. */
-function switchAnswer(isOn: boolean, style: string | null): string {
+function switchAnswer(isOn: boolean, style: string | null, sendsGuide: boolean): string {
   if (!isOn) return 'Stretchtext off: Claude gets no stretch rules, and every stretch is drawn open.'
   if (style !== null) return `Stretchtext on: the output style ${style} holds the rules.`
+  if (!sendsGuide) return 'Stretchtext on: Claude gets no stretch rules, as the systemPromptGuide setting is off. A cc-stretch output style holds its own.'
   return 'Stretchtext on: Claude gets the phrase guide in the system prompt. On a setup with managed settings, Claude Code skips that hook.'
 }
 
@@ -305,13 +306,18 @@ export const register: Register = (on, options) => {
   // system prompt. The session starts on under a cc-stretch style, else from the setting, and
   // /cc-stretch:stretch switches it until the session ends.
   const startsOn = options.startOn === true
+  // Each setting below, off, leaves its hook unregistered. A managed setup skips both hooks, and as
+  // of Claude Code 2.1.309 it tells the session and Claude once per hook that it skipped one
+  // (docs/BACKLOG.md, managed-setup-limit); unregistered, there is nothing to skip.
+  const sendsGuide = options.systemPromptGuide !== false
+  const filtersStreaming = options.filterWhileStreaming !== false
   on('command.run', { command: 'cc-stretch:stretch' }, async ($, e) => {
     const asked = e.args.trim().toLowerCase()
     const style = await resolveStyle($)
     if (asked !== '' && asked !== 'on' && asked !== 'off') return { text: `Usage: /cc-stretch:stretch [on|off]; with no argument it switches. Stretchtext is ${(await isOn($, startsOn)) ? 'on' : 'off'}.` }
     const turnsOn = asked === '' ? !(await isOn($, startsOn)) : asked === 'on'
     await update($, switched, () => turnsOn)
-    return { text: switchAnswer(turnsOn, style) }
+    return { text: switchAnswer(turnsOn, style, sendsGuide) }
   })
 
   // The style is read here and with each typed prompt, never while drawing: ui.render runs often.
@@ -394,42 +400,47 @@ export const register: Register = (on, options) => {
   // While a reply streams, Claude Code draws its lines as they arrive, before the reply reaches
   // the AssistantMessage site below. Showing each stretch as its short form there too keeps the
   // raw markup from flashing past. As of Claude Code 2.1.302 up to three flushes of a message run at
-  // once and the final one does not wait, so each flush filters after the one before it.
-  on('classic.MessageDisplay', ($, e, next) => {
-    const before = flushes.get(e.message_id)
-    const flush = (async () => {
-      try {
-        const answer = await next(e)
-        await before
-        return await display($, e, answer)
-      } catch (error) {
-        // A reply whose final flush failed is not kept, so the session is read again when it is drawn.
-        if (e.final) sessionKept = undefined
-        throw error
-      }
-    })()
-    const settled = flush.then(
-      () => undefined,
-      () => undefined,
-    )
-    flushes.set(e.message_id, settled)
-    void settled.then(() => flushes.get(e.message_id) === settled && flushes.delete(e.message_id))
-    return flush
-  })
+  // once and the final one does not wait, so each flush filters after the one before it. With the
+  // `filterWhileStreaming` setting off, the hook is not registered: a stretch still streaming shows
+  // its markup until it closes, and the AssistantMessage site draws the finished reply as written.
+  if (filtersStreaming)
+    on('classic.MessageDisplay', ($, e, next) => {
+      const before = flushes.get(e.message_id)
+      const flush = (async () => {
+        try {
+          const answer = await next(e)
+          await before
+          return await display($, e, answer)
+        } catch (error) {
+          // A reply whose final flush failed is not kept, so the session is read again when it is drawn.
+          if (e.final) sessionKept = undefined
+          throw error
+        }
+      })()
+      const settled = flush.then(
+        () => undefined,
+        () => undefined,
+      )
+      flushes.set(e.message_id, settled)
+      void settled.then(() => flushes.get(e.message_id) === settled && flushes.delete(e.message_id))
+      return flush
+    })
 
   // The phrase guide goes in the system prompt while stretchtext is on and no cc-stretch output style,
-  // which holds its own rules, is active. As of Claude Code 2.1.299 to 2.1.303 a managed setup skips
+  // which holds its own rules, is active. As of Claude Code 2.1.299 to 2.1.309 a managed setup skips
   // the prompt.compose hooks of a plugin a person installed (docs/BACKLOG.md, managed-setup-limit),
-  // and the guide is not sent around that.
-  on('prompt.compose', async ($, e, next) => {
-    const composed = await next(e)
-    if (e.surfaces.length === 0) return composed
-    if (!(await isOn($, startsOn)) || (await styleNow($)) !== null) return composed
+  // and the guide is not sent around that. With the `systemPromptGuide` setting off, the hook is
+  // not registered and Claude gets the guide nowhere.
+  if (sendsGuide)
+    on('prompt.compose', async ($, e, next) => {
+      const composed = await next(e)
+      if (e.surfaces.length === 0) return composed
+      if (!(await isOn($, startsOn)) || (await styleNow($)) !== null) return composed
 
-    return {
-      sections: [...composed.sections, { id: 'cc-stretch:guide', text: GUIDE, scope: 'session' }],
-    }
-  })
+      return {
+        sections: [...composed.sections, { id: 'cc-stretch:guide', text: GUIDE, scope: 'session' }],
+      }
+    })
 
   // The note on what the reader opened rides with each prompt they type, while stretchtext is on.
   on('prompt.submit', async ($, e, next) => {
@@ -653,11 +664,10 @@ export const register: Register = (on, options) => {
   })
 
   // A change to the prompt box that is not an edit, such as a recalled history entry or a clear,
-  // puts the letters away too. As of Claude Code 2.1.295 a module that names an event the engine
-  // lacks is refused whole, and prompt.change came in 2.1.300, so this hook stands on prompt.* and
-  // acts on that event only.
-  on('prompt.*', async ($, e, next) => {
-    if (next.event === 'prompt.change' && (await read($, lettering)) !== null) await update($, lettering, () => null)
+  // puts the letters away too. prompt.change is in Claude Code 2.1.300 and later, and a Claude Code
+  // that lacks an event a module names refuses the module whole, so cc-stretch needs 2.1.300 or later.
+  on('prompt.change', async ($, e, next) => {
+    if ((await read($, lettering)) !== null) await update($, lettering, () => null)
     return next(e)
   })
 }

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.1 — 2026-10-24
+
+- Two settings, both on by default, decide whether two hooks are registered at all:
+  `systemPromptGuide` puts the phrase guide in the system prompt, and `filterWhileStreaming` shows
+  each stretch as its short form while a reply streams. On a setup with managed settings, Claude
+  Code 2.1.309 skips both hooks and says so once per session for each, to you and to Claude. Under
+  a cc-stretch output style there, turn both off and nothing is skipped.
+- `/cc-stretch:stretch on` says Claude gets no stretch rules when `systemPromptGuide` is off and no
+  cc-stretch style is active.
+- cc-stretch hooks `prompt.change` by name, so a setup with managed settings reports no skipped
+  `prompt.context`, `prompt.section` or `prompt.attachment` hook for it. cc-stretch needs Claude
+  Code 2.1.300 or later again: an earlier one, which the Claude desktop app can still bundle,
+  refuses it whole ([#17](https://github.com/pro-vi/cc-stretch/issues/17)).
+
 ## 0.6.0 — 2026-10-23
 
 - The output style `cc-stretch:bottom-line-stretch` collapses each section of a long reply under its

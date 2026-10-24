@@ -382,6 +382,19 @@ describe('streaming', () => {
     expect(searches).toBe(0)
     await ui.unmount()
   })
+
+  test('with filterWhileStreaming off, a streaming reply shows its markup and the finished reply is still drawn closed', { options: { filterWhileStreaming: false } }, async ($, on) => {
+    on('classic.MessageDisplay', () => ({}))
+    on('session.surfaces', () => ({ value: ['terminal'] }))
+    on('session.messages', () => ({ value: [] }))
+    const flush = (index: number, delta: string, final = false) =>
+      $.classic.MessageDisplay({ turn_id: 't', message_id: 'm', index, final, delta })
+    expect((await flush(0, 'A monad is {{a wrapper|a wrapper, like')).displayContent).toBeUndefined()
+    expect((await flush(1, 'Maybe or List,}} with two operations.', true)).displayContent).toBeUndefined()
+    const ui = await mountReply($, FULLSCREEN, 'A monad is {{a wrapper|a wrapper, like Maybe or List,}} with two operations.')
+    expect(await textIn(ui)).toBe('A monad is a wrapper with two operations.')
+    await ui.unmount()
+  })
 })
 
 describe('parse', () => {
@@ -1593,6 +1606,13 @@ describe('the stretchtext switch', () => {
     composing(on)
     await runStretch($, 'on')
     expect(await compose($)).toEqual([ENGINE_SECTION, GUIDE_SECTION])
+  })
+
+  test('with systemPromptGuide off, no guide goes in the system prompt and the command says Claude gets no rules', { options: { systemPromptGuide: false } }, async ($, on) => {
+    composing(on)
+    expect(await compose($)).toEqual([ENGINE_SECTION])
+    expect(await runStretch($, 'on')).toBe('Stretchtext on: Claude gets no stretch rules, as the systemPromptGuide setting is off. A cc-stretch output style holds its own.')
+    expect(await compose($)).toEqual([ENGINE_SECTION])
   })
 
   test('off, every stretch is drawn open in fullscreen, on the main screen and in the desktop app, with no note why', async ($, on) => {

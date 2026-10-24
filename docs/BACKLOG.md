@@ -40,7 +40,7 @@ Checkbox marks a lane consumed (plan written, or direct commit landed).
 - [ ] **long-session-drift** — a bench task shows whether Claude stops writing stretches deep in a long session · verdict: defer · signal: none · promote when: a second report of stretches stopping in a long session
 - [ ] **copy-on-select** — the plugin's selection copies when Claude Code's own would · verdict: pending · needs: a design call on whether a drag or double-click in a paragraph the plugin draws follows "Copy on select"
 - [ ] **windows-link-opener** — on Windows a ctrl- or alt-click on a link in a paragraph that holds a stretch opens it · verdict: pending · needs: a live session on Windows
-- [ ] **desktop-before-2.1.300** — the desktop app on a bundled Claude Code before 2.1.300 shows stretches with 0.5.3 · verdict: pending · needs: a look at the desktop app while it bundles 2.1.295 or 2.1.299
+- [ ] **desktop-before-2.1.300** — cc-stretch loads in a desktop app that bundles a Claude Code before 2.1.300 · verdict: defer · signal: none · promote when: a reader reports the desktop app bundling a Claude Code before 2.1.300
 
 ## plugin-folder
 
@@ -415,6 +415,11 @@ plugin the organization lists in managed settings runs them". The README's Limit
 and #3 has no reply naming the cause. Sending the guide another way, such as in the per-prompt note,
 would get around a security control on purpose, so it is not the fix.
 
+As of Claude Code 2.1.309 the setup also tells the session and Claude, once per session, for each
+cc-stretch hook it skips: `prompt.compose` and `classic.MessageDisplay`. The settings
+`systemPromptGuide` and `filterWhileStreaming`, each off, leave its hook unregistered, so a
+cc-stretch output style on such a setup runs with nothing skipped.
+
 ## desktop-first-request
 
 A report in [#3](https://github.com/pro-vi/cc-stretch/issues/3) guesses that the desktop app gets
@@ -447,6 +452,9 @@ the live check runs on macOS, so neither the choice nor the command has run on W
 
 ## desktop-before-2.1.300
 
-From 0.5.3 the hooks module loads in Claude Code 2.1.293 and 2.1.295, checked with `claude -p`
-([#17](https://github.com/pro-vi/cc-stretch/issues/17)). Whether the desktop app with such a
-version then shows stretches is not checked; `desktop-first-request` holds one reason it might not.
+cc-stretch hooks `prompt.change`, which Claude Code has from 2.1.300. As of Claude Code 2.1.295 a
+module that names an event the engine lacks is refused whole, so an earlier Claude Code refuses
+cc-stretch ([#17](https://github.com/pro-vi/cc-stretch/issues/17)), and a desktop app that bundles
+one shows the `{{short|long}}` markup as raw text. Loading there again means hooking `prompt.*`,
+which a setup with managed settings on Claude Code 2.1.309 reports as three more skipped hooks
+(`managed-setup-limit`).

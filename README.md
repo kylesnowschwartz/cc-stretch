@@ -49,6 +49,16 @@ short form is the section's finding. Choose it with `/output-style`, or in setti
 - To add a stretch style, put a file in `output-styles/`. Put its stretch rules first in the file,
   with a worked example of a reply that follows them.
 
+| Plugin setting (on by default) | Turned off |
+| --- | --- |
+| `systemPromptGuide` | Claude gets no phrase guide in the system prompt |
+| `filterWhileStreaming` | While a reply streams, a stretch shows its markup until it closes |
+
+- On a setup with managed settings, Claude Code skips the hooks behind both settings, so neither
+  takes effect. As of Claude Code 2.1.309 it tells you and Claude once per session for each skipped
+  hook. Under a cc-stretch style on such a setup, turn both off in `/plugin`'s Configure options and
+  nothing is skipped.
+
 To update, run `claude plugin update cc-stretch@cc-stretch` in a shell, or open `/plugin`, find
 cc-stretch under Installed and choose Update now. As of Claude Code 2.1.302 a plugin from this
 marketplace updates on its own only once you turn on auto-update for the marketplace in `/plugin`'s
@@ -165,9 +175,9 @@ never lose your place.
 - Built on Claude Code's function-hook plugin API, which is early access and changes between
   releases. Checked in the terminal on macOS with Claude Code 2.1.300 to 2.1.302 and 2.1.306, and
   with 2.1.292 to 2.1.294 in cc-stretch 0.1.0; in the Claude desktop app with 2.1.295 in cc-stretch
-  0.2.0. Claude Code before 2.1.300, which the desktop app can still bundle, refused cc-stretch 0.4.0
-  to 0.5.2 whole ([#17](https://github.com/pro-vi/cc-stretch/issues/17)); 0.5.3 loads in 2.1.293 and
-  2.1.295 again, but its clicks in the desktop app there are unchecked. On Linux, a reader reports
+  0.2.0. cc-stretch needs Claude Code 2.1.300 or later: it hooks `prompt.change`, and an earlier
+  Claude Code, which the desktop app can still bundle, refuses the plugin whole
+  ([#17](https://github.com/pro-vi/cc-stretch/issues/17)). On Linux, a reader reports
   clicks working with 2.1.302 in a terminal pane of the Orca app
   ([#14](https://github.com/pro-vi/cc-stretch/issues/14)). On Windows 11, a reader reports clicks
   working with 2.1.304 in PowerShell ([#1](https://github.com/pro-vi/cc-stretch/issues/1)).

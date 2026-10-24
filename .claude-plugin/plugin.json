@@ -1,6 +1,6 @@
 {
   "name": "cc-stretch",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Stretchtext replies for Claude Code: short by default, each phrase grows in place when you click it",
   "types": "./types/index.d.ts",
   "userConfig": {
@@ -27,6 +27,18 @@
       "title": "Closed stretch highlight",
       "description": "Background of a phrase you can open: a hex colour such as #264f78, in any case, or the word tinted, which highlights each closed stretch in the colour its words take once open, blended 75% into the background. Its text turns near black or near white, whichever reads better. Empty, or anything else, for none.",
       "default": ""
+    },
+    "systemPromptGuide": {
+      "type": "boolean",
+      "title": "Phrase guide in the system prompt",
+      "description": "Whether Claude gets the stretchtext phrase guide in the system prompt while stretchtext is on and no cc-stretch output style is active. Off, Claude gets no guide, and a setup with managed settings has no skipped hook to report for it. A cc-stretch output style holds its own rules either way.",
+      "default": true
+    },
+    "filterWhileStreaming": {
+      "type": "boolean",
+      "title": "Short forms while streaming",
+      "description": "Whether a reply shows each stretch as its short form while it streams. Off, a stretch shows its markup until it closes, and a setup with managed settings has no skipped hook to report for it. The finished reply is drawn the same either way.",
+      "default": true
     }
   }
 }

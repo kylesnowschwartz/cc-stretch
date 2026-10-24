@@ -19,8 +19,9 @@ and in time a guide chosen for each model Claude Code runs.
 ## Where each promise is kept
 
 - How Claude writes: `hooks/guide.ts`, added to the system prompt while stretchtext is on and no
-  cc-stretch output style is active; a setup with managed settings skips that hook
-  (`docs/BACKLOG.md`, managed-setup-limit), and the guide is not sent another way. Change
+  cc-stretch output style is active and the `systemPromptGuide` setting is on (off, the hook is not
+  registered); a setup with managed settings skips that hook (`docs/BACKLOG.md`,
+  managed-setup-limit), and the guide is not sent another way. Change
   it only through the guide bench (`bench/README.md`). A new way Claude gets stretchtext wrong first
   becomes a rule in `bench/rules.ts`, with examples that must fail and pass in
   `tests/bench.test.ts`; then the guide change that should fix it becomes a variant in
@@ -32,6 +33,11 @@ and in time a guide chosen for each model Claude Code runs.
   stretchtext on and makes `motion` `auto` instant.
 - How a stretch is drawn: `hooks/layout.ts`, `hooks/grow.ts` and `hooks/reply.tsx`. While a
   stretch grows or shrinks, the words already on screen stay where they are.
+- How a reply looks while it streams: the `classic.MessageDisplay` hook in `hooks/register.tsx`
+  shows each stretch as its short form, registered only while the `filterWhileStreaming` setting is
+  on; a setup with managed settings skips it.
+- Which Claude Code loads it: 2.1.300 or later, the first with `prompt.change`, which
+  `hooks/register.tsx` hooks by name.
 
 ## Checks
 
