@@ -161,6 +161,11 @@ describe('streaming', () => {
     expect(hideLongForms(['```', '```python', '{{a|b}}', '```', '{{c|d}}'].join('\n'), state)).toBe(['```', '```python', '{{a|b}}', '```', 'c'].join('\n'))
   })
 
+  test('a closing fence that carries the braces of the stretches around it closes the block and them, so what follows shows short', async () => {
+    const lines = ['{{Count first.|Count first.', '```bash', 'git push', '```}}', '', '## Risks', '{{a|{{b|x', '~~~', 'code', '~~~ }}}}', '{{Risks.|long}}']
+    expect(hideLongForms(lines.join('\n'), newStreamState())).toBe(['Count first.', '', '## Risks', 'a', 'Risks.'].join('\n'))
+  })
+
   for (const surfaces of [['terminal'], ['terminal', 'mobile'], ['terminal', 'vscode']] satisfies RenderSurface[][]) {
     test(`the display of a streaming reply never shows the markup with ${surfaces.join(' and ')} attached`, async ($, on) => {
       on('classic.MessageDisplay', () => ({}))
@@ -406,6 +411,29 @@ describe('parse', () => {
     const [, plain] = parse('Lead {{plain}} end')
     expect(typeof plain !== 'string' && plain).toMatchObject({ short: 'plain', long: undefined, isClosed: true })
   })
+
+  describe('a long form ending in a code block', () => {
+    const keys = (text: string) => stretches(parse(text)).map(s => [s.key, s.isClosed])
+
+    test('closes at a closing fence followed by its braces, and what follows still parses', async () => {
+      const text = ['{{Count first.|Count first.', '', '```bash', 'git push --force-with-lease', '```}}', '', '## Main risks', '', '{{Risks.|Risks, long.}}', '', '**Bottom line:** done.'].join('\n')
+      const parts = parse(text)
+      expect(keys(text)).toEqual([['Count first.', true], ['Risks.', true]])
+      expect(parts[0]).toMatchObject({ long: ['Count first.\n\n```bash\ngit push --force-with-lease\n```'] })
+      expect(parts.at(-1)).toBe('\n\n**Bottom line:** done.')
+    })
+
+    test('closes nested stretches at a fence followed by their braces, spaces allowed, with ~~~ fences too', async () => {
+      expect(keys('{{a|{{b|x\n```\ncode\n```}}}}\nafter {{c|d}}')).toEqual([['a', true], ['a › b', true], ['c', true]])
+      expect(keys('{{a|{{b|x\n~~~~\ncode\n~~~~ }} }}\nafter {{c|d}}')).toEqual([['a', true], ['a › b', true], ['c', true]])
+    })
+
+    test('does not close the block for a fence line with other text after it, or one outside every stretch', async () => {
+      const [held] = parse('{{a|x\n```\n``` }} more\n```\n}} after')
+      expect(held).toMatchObject({ isClosed: true, long: ['x\n```\n``` }} more\n```\n'] })
+      expect(parse('```\ncode\n```}}\n{{a|b}}')).toEqual(['```\ncode\n```}}\n{{a|b}}'])
+    })
+  })
 })
 
 describe('layout', () => {
@@ -607,6 +635,22 @@ describe('paragraphs', () => {
   test('a line starting with a fence marker and more text does not close the block', async () => {
     const text = ['```', '```python', '', '{{a|b}}', '```', 'After.'].join('\n')
     expect(paragraphsOf(text)).toEqual([{ text, hasStretch: false }])
+  })
+
+  test('a closing fence followed by the braces of the stretch around it ends the stretch, so the blank line after cuts', async () => {
+    const text = ['{{a|long', '```', 'code', '```}}', '', 'After {{b|c}}.'].join('\n')
+    expect(paragraphsOf(text)).toEqual([
+      { text: '{{a|long\n```\ncode\n```}}', hasStretch: true },
+      { text: 'After {{b|c}}.', hasStretch: true },
+    ])
+  })
+
+  test('a reply whose stretch closes on a code block\'s closing fence draws every section after it', async $ => {
+    const text = ['{{Count first.|Count first.', '', '```bash', 'git push', '```}}', '', 'After {{risks|the risks}}.'].join('\n')
+    const ui = await mountReply($, FULLSCREEN, text)
+    expect(await textIn(ui, 'paragraph-0')).toBe('Count first.')
+    expect(await textIn(ui, 'paragraph-1')).toBe('After risks.')
+    await ui.unmount()
   })
 })
 

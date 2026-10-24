@@ -31,6 +31,13 @@ describe('benchmark measures', () => {
     expect(render('A {{b|c', 'all')).toBe('A b')
   })
 
+  test('a stretch closing on a code block\'s closing fence leaves the text after it in both measures', async () => {
+    const text = ['{{Count first.|Count first, then push:', '```bash', 'git push', '```}}', '', '{{Risks.|Risks, long.}}', '', 'Bottom line: done.'].join('\n')
+    expect(render(text, new Set())).toBe('Count first.\n\nRisks.\n\nBottom line: done.')
+    expect(render(text, 'all')).toBe('Count first, then push:\n```bash\ngit push\n```\n\nRisks, long.\n\nBottom line: done.')
+    expect(measure(text)).toEqual({ skim: 6, full: 12 })
+  })
+
   test('counts where the added words land around the short form', async () => {
     expect(growthOf('The build fails on a stale cache.', parse('The CI build fails, about one run in five, on a stale dependency cache keyed only by package.json.'))).toEqual({ before: 0, between: 7, after: 4, missing: 0 })
     expect(growthOf('Two options exist.', parse('Two options exist. One is a command, the other a hover.'))).toEqual({ before: 0, between: 0, after: 8, missing: 0 })
