@@ -7,11 +7,23 @@
     "test": "claude plugin validate . && claude plugin test .",
     "typecheck": "tsc -p bench/tsconfig.json",
     "bench:report": "node bench/report.ts",
-    "film": "node film/compose.mjs"
+    "film": "node film/compose.mjs",
+    "test:pi": "node --test pi/*.spec.ts",
+    "typecheck:pi": "tsc -p pi/tsconfig.json"
   },
   "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.5.2",
     "@types/node": "24.6.0",
     "playwright": "1.62.0",
     "typescript": "5.9.3"
+  },
+  "pi": {
+    "extensions": [
+      "./pi/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
   }
 }

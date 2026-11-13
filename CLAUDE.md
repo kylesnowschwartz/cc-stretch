@@ -52,4 +52,8 @@ and in time a guide chosen for each model Claude Code runs.
   `.claude-plugin/types/` when it loads the plugin from this folder (`claude --plugin-dir .`).
 - A comment or doc that says how Claude Code behaves names the version it was checked against: the
   plugin API changes between releases.
+- The pi extension in `pi/` has its own checks: `npm run test:pi` runs `pi/*.spec.ts` under
+  `node --test`, and `npm run typecheck:pi` typechecks it. Its specs are named `.spec.ts` so that
+  `claude plugin test .` does not run them. It may import `hooks/parse.ts` and nothing else from
+  `hooks/`, with the `.ts` written out: `node --test` resolves no import without its extension.
 - E2E map: `docs/e2e-map.md`, how to prove a change in a live Claude Code session.

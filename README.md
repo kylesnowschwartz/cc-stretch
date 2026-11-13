@@ -184,6 +184,33 @@ never lose your place.
 - A terminal session that also has the desktop app attached shows the markup while a reply streams,
   because the desktop builds its links from it.
 
+## In pi
+
+`pi/` holds an extension for the [pi coding agent](https://github.com/earendil-works/pi). It reads
+the same `{{short|long}}` markup with the same parser, `hooks/parse.ts`.
+
+```
+pi install /path/to/cc-stretch
+```
+
+- A paragraph holding a stretch is drawn closed, with `»` after its short form. A click anywhere on
+  it opens it in place, and a click on the open paragraph closes it. Every stretch of the paragraph
+  opens together, so under `bottom-line-stretch` a section opens as one.
+- `/stretch` opens every stretch of the newest reply, or closes them when all are open.
+  `/stretch open` and `/stretch close` name the action.
+- With your next prompt the model is told which stretches you opened and which you did not.
+- The model gets its stretch rules from your own instructions: pi has no output styles, so put the
+  text of `output-styles/bottom-line-stretch.md` in your `AGENTS.md`.
+
+Limits, as of pi 1.5.2:
+
+- Clicks need pi's fullscreen mode, its default. In regular mode use `/stretch`.
+- A reply is drawn by the extension only in pi's own transcript. An extension that draws its own
+  copy of the transcript, such as pi-split-view 1.5.0 in its response-only mode, shows the markup as
+  written.
+- What stands open is not kept when pi restarts: every stretch is drawn closed again.
+- Outside the terminal UI (print, JSON and RPC modes) the reply is left as the model wrote it.
+
 ## Development
 
 ```
