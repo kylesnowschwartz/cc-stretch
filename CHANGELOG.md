@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0 — 2026-11-14
+
+- cc-stretch draws stretches in the [pi coding agent](https://github.com/earendil-works/pi) too.
+  Install it with `pi install /path/to/cc-stretch`. A paragraph holding a stretch is drawn closed
+  with `»` after its short form, and a click on it opens it in place; a click on the open paragraph
+  closes it. `/stretch` opens every stretch of the newest reply, or closes them when all are open.
+- In pi, the model is told with your next prompt which stretches you opened and which you did not.
+- In pi, clicks need fullscreen mode, and what stands open is not kept when pi restarts. An
+  extension that draws its own copy of the transcript, such as pi-split-view 1.5.0 in its
+  response-only mode, shows the markup as written. See "In pi" in the README.
+
 ## 0.6.1 — 2026-10-24
 
 - Two settings, both on by default, decide whether two hooks are registered at all:
