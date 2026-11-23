@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.2 — 2026-11-24
+
+- In pi, a paragraph that is one stretch, directly under a header, has its first `»` or `«` before
+  the header's title instead of before its own words, and a click on the header opens and closes it.
+
 ## 0.7.1 — 2026-11-24
 
 - In pi, a closed stretch has `»` before its short form as well as after it, and an open stretch
