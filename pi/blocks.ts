@@ -2,7 +2,7 @@
 // A paragraph holding a stretch opens and closes as one block, so a click needs no position inside
 // wrapped text. Under the bottom-line-stretch style each section is one such paragraph.
 
-import { closeAfter, isOpenable, paragraphsOf, parse, type Segment } from '../hooks/parse.ts'
+import { closeAfter, isOpenable, isRule, openingFence, paragraphsOf, parse, type Segment } from '../hooks/parse.ts'
 
 export type Block = {
   segments: Segment[]
@@ -10,7 +10,7 @@ export type Block = {
   names: string[]
 }
 
-/** The mark after a closed short form, and after an open long form. */
+/** The mark on each side of a closed short form, and on each side of an open long form. */
 export const OPENER = '»'
 export const CLOSER = '«'
 
@@ -38,9 +38,28 @@ export function drawBlock(block: Block, isOpen: boolean): string {
     .map(part => {
       if (typeof part === 'string') return part
       if (!isOpenable(part)) return part.short
-      return isOpen ? closeAfter(written(part.long ?? []), CLOSER, '\n\n') : `${part.short} ${OPENER}`
+      return isOpen
+        ? markBefore(closeAfter(written(part.long ?? []), CLOSER, GAP), CLOSER)
+        : `${markBefore(part.short, OPENER)} ${OPENER}`
     })
     .join('')
+}
+
+const GAP = '\n\n'
+
+/** A heading, a list item, a quote or a table row: a line that reads as text with a mark before it. */
+const BLOCK_START = /^ {0,3}(?:#{1,6}(?:\s|$)|[-*+]\s|\d{1,9}[.)]\s|>|\|)/
+
+/**
+ * `text` with `mark` before it, after a space, or on a line of its own when `text` starts with a
+ * line a mark before it would change.
+ */
+function markBefore(text: string, mark: string): string {
+  const start = text.replace(/^\s*\n/, '')
+  const first = start.slice(0, (start + '\n').indexOf('\n'))
+  const startsInBlock = BLOCK_START.test(first) || isRule(first) || openingFence(first) !== undefined
+
+  return startsInBlock ? `${mark}${GAP}${start}` : `${mark} ${text}`
 }
 
 /**

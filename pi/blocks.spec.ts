@@ -34,12 +34,12 @@ test('a reply is cut into plain runs and one block for each paragraph holding a 
   assert.equal(drawBlock(blocks[0]!, false), 'The cache keeps each response for 10 minutes.\n\n## How a lookup works')
 })
 
-test('a closed block shows its short form and the opener', () => {
-  assert.equal(drawBlock(blocksOf(REPLY)[3]!, false), 'Entries expire after 10 minutes. »')
+test('a closed block shows its short form between two openers', () => {
+  assert.equal(drawBlock(blocksOf(REPLY)[3]!, false), '» Entries expire after 10 minutes. »')
 })
 
-test('an open block shows its long form and the closer', () => {
-  assert.equal(drawBlock(blocksOf(REPLY)[3]!, true), 'Entries expire after 10 minutes. A deploy clears them. «')
+test('an open block shows its long form between two closers', () => {
+  assert.equal(drawBlock(blocksOf(REPLY)[3]!, true), '« Entries expire after 10 minutes. A deploy clears them. «')
 })
 
 test('the closer stands apart from a long form that ends in a code fence', () => {
@@ -48,18 +48,26 @@ test('the closer stands apart from a long form that ends in a code fence', () =>
   assert.ok(open.endsWith('```\n\n«'), open)
 })
 
+test('the first closer stands apart from a long form that starts with a list or a code fence', () => {
+  const [list] = blocksOf('{{Two steps.|- Install it.\n- Run it.}}')
+  const [fence] = blocksOf('{{One command.|```sh\nnpm test\n```}}')
+
+  assert.equal(drawBlock(list!, true), '«\n\n- Install it.\n- Run it. «')
+  assert.equal(drawBlock(fence!, true), '«\n\n```sh\nnpm test\n```\n\n«')
+})
+
 test('an open block opens the stretches inside its long form too', () => {
   const [block] = blocksOf('{{Outer.|Outer, with {{inner|inner detail}}.}}')
 
-  assert.equal(drawBlock(block!, true), 'Outer, with inner detail. «')
+  assert.equal(drawBlock(block!, true), '« Outer, with inner detail. «')
 })
 
 test('a paragraph with several stretches opens as one block', () => {
   const [block] = blocksOf('Use {{Redis|Redis 7}} with {{a TTL|a TTL of 600 seconds}}.')
 
   assert.deepEqual(block!.names, ['Redis', 'a TTL'])
-  assert.equal(drawBlock(block!, false), 'Use Redis » with a TTL ».')
-  assert.equal(drawBlock(block!, true), 'Use Redis 7 « with a TTL of 600 seconds «.')
+  assert.equal(drawBlock(block!, false), 'Use » Redis » with » a TTL ».')
+  assert.equal(drawBlock(block!, true), 'Use « Redis 7 « with « a TTL of 600 seconds «.')
 })
 
 test('braces with no long form are text, and open nothing', () => {

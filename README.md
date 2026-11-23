@@ -193,9 +193,10 @@ the same `{{short|long}}` markup with the same parser, `hooks/parse.ts`.
 pi install /path/to/cc-stretch
 ```
 
-- A paragraph holding a stretch is drawn closed, with `»` after its short form. A click anywhere on
-  it opens it in place, and a click on the open paragraph closes it. Every stretch of the paragraph
-  opens together, so under `bottom-line-stretch` a section opens as one.
+- A paragraph holding a stretch is drawn closed, with `»` before and after its short form. A click
+  anywhere on it opens it in place, with `«` before and after its long form, and a click on the open
+  paragraph closes it. Every stretch of the paragraph opens together, so under `bottom-line-stretch`
+  a section opens as one.
 - `/stretch` opens every stretch of the newest reply, or closes them when all are open.
   `/stretch open` and `/stretch close` name the action.
 - With your next prompt the model is told which stretches you opened and which you did not.
