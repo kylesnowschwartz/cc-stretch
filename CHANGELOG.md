@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1 — 2026-11-24
+
+- In pi, a closed stretch has `»` before its short form as well as after it, and an open stretch
+  has `«` before its long form as well as after it, so each end of a stretch shows where a click
+  acts. The first `«` goes on a line of its own before a long form that starts with a list, a
+  heading, a quote, a table or a code block.
+
 ## 0.7.0 — 2026-11-14
 
 - cc-stretch draws stretches in the [pi coding agent](https://github.com/earendil-works/pi) too.
