@@ -24,22 +24,36 @@ const REPLY = [
   '**Bottom line:** The cache stores each response.',
 ].join('\n')
 
-test('a reply is cut into plain runs and one block for each paragraph holding a stretch', () => {
+test('a reply is cut into plain runs and one block for each paragraph holding a stretch, with its header', () => {
   const blocks = blocksOf(REPLY)
 
   assert.deepEqual(
     blocks.map(block => block.names),
-    [[], ['A lookup reads one key.'], [], ['Entries expire after 10 minutes.'], []],
+    [[], ['A lookup reads one key.'], ['Entries expire after 10 minutes.'], []],
   )
-  assert.equal(drawBlock(blocks[0]!, false), 'The cache keeps each response for 10 minutes.\n\n## How a lookup works')
+  assert.equal(drawBlock(blocks[0]!, false), 'The cache keeps each response for 10 minutes.')
 })
 
 test('a closed block shows its short form between two openers', () => {
-  assert.equal(drawBlock(blocksOf(REPLY)[3]!, false), '» Entries expire after 10 minutes. »')
+  assert.equal(drawBlock(blocksOf('{{Entries expire.|Entries expire. A deploy clears them.}}')[0]!, false), '» Entries expire. »')
+})
+
+test('a section under a header has its first mark before the header\'s title', () => {
+  const block = blocksOf(REPLY)[2]!
+
+  assert.equal(drawBlock(block, false), '## » When entries expire\n\nEntries expire after 10 minutes. »')
+  assert.equal(drawBlock(block, true), '## « When entries expire\n\nEntries expire after 10 minutes. A deploy clears them. «')
+})
+
+test('a header keeps its own mark only above a paragraph that is one stretch', () => {
+  const blocks = blocksOf('## Setup\n\nUse {{Redis|Redis 7}} here.\n\n## Notes\n\nPlain text.')
+
+  assert.equal(drawBlock(blocks[0]!, false), '## Setup')
+  assert.equal(drawBlock(blocks[1]!, false), 'Use » Redis » here.')
 })
 
 test('an open block shows its long form between two closers', () => {
-  assert.equal(drawBlock(blocksOf(REPLY)[3]!, true), '« Entries expire after 10 minutes. A deploy clears them. «')
+  assert.equal(drawBlock(blocksOf('{{Entries expire.|Entries expire. A deploy clears them.}}')[0]!, true), '« Entries expire. A deploy clears them. «')
 })
 
 test('the closer stands apart from a long form that ends in a code fence', () => {
@@ -107,7 +121,7 @@ test('opening everything opens only the blocks that hold a stretch', () => {
   state.setAll(true)
 
   assert.equal(state.isAllOpen(), true)
-  assert.deepEqual([0, 1, 2, 3, 4].map(index => state.isOpen(index)), [false, true, false, true, false])
+  assert.deepEqual([0, 1, 2, 3].map(index => state.isOpen(index)), [false, true, true, false])
   assert.deepEqual(state.unopened(), [])
 })
 

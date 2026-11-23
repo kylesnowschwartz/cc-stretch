@@ -8,19 +8,57 @@ export type Block = {
   segments: Segment[]
   /** The short form of each stretch a click opens, as a note to the model names it. */
   names: string[]
+  /** The header a section stands under, drawn and clicked as part of the block. */
+  header?: Header
 }
 
-/** The mark on each side of a closed short form, and on each side of an open long form. */
+type Header = { hashes: string; title: string }
+
+/**
+ * The mark on each side of a closed short form, and on each side of an open long form. A section
+ * under a header has its first mark before the header's title instead.
+ */
 export const OPENER = '»'
 export const CLOSER = '«'
 
 export function blocksOf(reply: string): Block[] {
-  return paragraphsOf(reply).map(({ text }) => {
-    const segments = parse(text)
-    const names = segments.flatMap(part => (typeof part !== 'string' && isOpenable(part) ? [part.short.trim()] : []))
+  const blocks: Block[] = []
+  for (const { text } of paragraphsOf(reply)) {
+    const block = blockOf(text)
+    const above = blocks.at(-1)
+    const split = isSection(block) && above !== undefined && !isOpenableBlock(above) ? splitHeader(drawBlock(above, false)) : undefined
+    if (split !== undefined) {
+      blocks.pop()
+      if (split.rest !== '') blocks.push(blockOf(split.rest))
+      block.header = split.header
+    }
+    blocks.push(block)
+  }
 
-    return { segments, names }
-  })
+  return blocks
+}
+
+function blockOf(text: string): Block {
+  const segments = parse(text)
+  const names = segments.flatMap(part => (typeof part !== 'string' && isOpenable(part) ? [part.short.trim()] : []))
+
+  return { segments, names }
+}
+
+/** Whether `block` is one stretch and nothing else: a section under the bottom-line-stretch style. */
+function isSection(block: Block): boolean {
+  return block.names.length === 1 && block.segments.every(part => typeof part !== 'string' || part.trim() === '')
+}
+
+const HEADER = /^ {0,3}(#{1,6})[ \t]+(\S.*)$/
+
+/** `text` cut into the header that is its last paragraph and the text before it, if it ends in one. */
+function splitHeader(text: string): { header: Header; rest: string } | undefined {
+  const cut = text.lastIndexOf(GAP)
+  const [, hashes, title] = HEADER.exec(cut < 0 ? text : text.slice(cut + GAP.length)) ?? []
+  if (hashes === undefined || title === undefined) return undefined
+
+  return { header: { hashes, title }, rest: cut < 0 ? '' : text.slice(0, cut) }
 }
 
 export function isOpenableBlock(block: Block): boolean {
@@ -34,15 +72,19 @@ export function hasOpenable(reply: string): boolean {
 
 /** The markdown of a block with its stretches closed, or open down to the innermost. */
 export function drawBlock(block: Block, isOpen: boolean): string {
-  return block.segments
+  const { header } = block
+  const body = block.segments
     .map(part => {
       if (typeof part === 'string') return part
       if (!isOpenable(part)) return part.short
-      return isOpen
-        ? markBefore(closeAfter(written(part.long ?? []), CLOSER, GAP), CLOSER)
-        : `${markBefore(part.short, OPENER)} ${OPENER}`
+      const text = isOpen ? closeAfter(written(part.long ?? []), CLOSER, GAP) : `${part.short} ${OPENER}`
+
+      return header === undefined ? markBefore(text, isOpen ? CLOSER : OPENER) : text
     })
     .join('')
+  if (header === undefined) return body
+
+  return `${header.hashes} ${isOpen ? CLOSER : OPENER} ${header.title}${GAP}${body}`
 }
 
 const GAP = '\n\n'
