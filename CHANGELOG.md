@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.3 — 2026-11-24
+
+- The `bottom-line-stretch` style tells the model to use `AskUserQuestion` when a question is
+  necessary. It does not tell the model to ask each open question.
+
 ## 0.7.2 — 2026-11-24
 
 - In pi, a paragraph that is one stretch, directly under a header, has its first `»` or `«` before
