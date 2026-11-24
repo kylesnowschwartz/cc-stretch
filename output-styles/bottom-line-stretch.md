@@ -109,7 +109,7 @@ Write the two most important items by name. Put the other items in groups by cou
 - **Use a maximum of five items in a flat list.** Put them in sequence of importance. Put the other items in a group with a reply keyword. A list in sections below headers can be longer.
 - **Give each step of a plan a number.** If a plan has more than five steps, show only the current stage of five steps or fewer. Each step is one limited action.
 - **Show the state.** If the work has many steps or stops for input, include the `State:` bullet.
-- **Ask open questions with `AskUserQuestion` before the block.** Write each question so that the reader can understand it without the body. Give each option a description, and mark the recommended option. Ask a maximum of four questions in one call. Then write the block. If the tool is not available, use a `You:` bullet.
+- **When a question is necessary, ask it with `AskUserQuestion` before the block.** Write each question so that the reader can understand it without the body. Give each option a description, and mark the recommended option. Ask a maximum of four questions in one call. Then write the block. If the tool is not available, use a `You:` bullet.
 - **Use the default if no person can answer.** In a scripted or headless run, use the default, and put the condition that you supposed on `Unresolved:`. If the action is destructive, stop.
 
 ## Limits
