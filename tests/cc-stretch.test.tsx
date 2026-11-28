@@ -1207,6 +1207,49 @@ test('the words a stretch adds take its colour, faded once another opens or the 
   await ui.unmount()
 })
 
+describe('on a theme known as neither light nor dark', () => {
+  const auto = (on: On) =>
+    on('config.list', () => ({ value: [{ key: 'theme', label: 'Theme', kind: 'choice', value: 'auto', provider: { plugin: 'engine', tier: 'core' }, isLocked: false } as const] }))
+  const propsOf = async (ui: Mounted, text: string) => (await ui.findAll({ type: 'Text', in: FIRST })).find(piece => piece.text?.trim() === text)?.props
+
+  test('an open stretch draws its words and closer in the theme colour by name, not dim', async ($, on) => {
+    auto(on)
+    const ui = await mountReply($, FULLSCREEN, 'One {{cat|cat, black,}} here.')
+    await pressOn(ui, 'cat')
+    await ui.advance(2000)
+    expect(await propsOf(ui, 'black,')).toMatchObject({ color: 'warning' })
+    expect(await propsOf(ui, 'black,')).not.toHaveProperty('dimColor')
+    expect(await propsOf(ui, '«')).toMatchObject({ color: 'warning' })
+    expect(await propsOf(ui, '«')).not.toHaveProperty('dimColor')
+    await ui.unmount()
+  })
+
+  test('an older open stretch draws its words dim in its colour, the newest in its own', async ($, on) => {
+    auto(on)
+    const text = 'One {{cat|cat, black,}} and {{dog|dog, brown,}} here.'
+    on('session.messages', () => ({ value: [{ role: 'assistant', text, toolUses: [] }] }))
+    const ui = await mountReply($, FULLSCREEN, text)
+    await pressOn(ui, 'cat')
+    await ui.advance(2000)
+    await pressOn(ui, 'dog')
+    await ui.advance(2000)
+    expect(await propsOf(ui, 'black,')).toMatchObject({ color: 'warning', dimColor: true })
+    expect(await propsOf(ui, 'brown,')).toMatchObject({ color: 'autoAccept' })
+    expect(await propsOf(ui, 'brown,')).not.toHaveProperty('dimColor')
+    await ui.unmount()
+  })
+
+  test('under the tinted highlight a closed stretch has no background, and opened takes its place\'s colour', { options: { highlight: 'tinted' } }, async ($, on) => {
+    auto(on)
+    const ui = await mountReply($, FULLSCREEN, 'A {{one|one more}} and {{two|two more}}.')
+    expect(await propsOf(ui, 'two')).not.toHaveProperty('backgroundColor')
+    await pressOn(ui, 'two')
+    await ui.advance(2000)
+    expect(await propsOf(ui, 'more')).toMatchObject({ color: 'autoAccept' })
+    await ui.unmount()
+  })
+})
+
 test('a short form written over several lines is drawn open in the terminal too', async $ => {
   const ui = await mountReply($, FULLSCREEN, ['Two steps: {{- one', '- two|- one, first', '- two, second}}'].join('\n'))
   expect(await textIn(ui)).toBe('Two steps: - one, first\n- two, second')

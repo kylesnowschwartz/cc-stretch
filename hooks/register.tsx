@@ -48,7 +48,11 @@ const MAIN_SCREEN_NOTE =
 // than shout. Each open stretch keeps its colour; all but the newest take a faded form of it, mixed
 // 35% toward the background, quieter but still that colour. In the tinted highlight a closed stretch
 // sits on the same theme colour mixed 75% toward the background, deep on the dark theme and pale on the
-// light one; on both, the text contrastOn picks reads at 10:1 or more.
+// light one; on both, the text contrastOn picks reads at 10:1 or more. A theme that is neither light
+// nor dark by name, such as auto, which follows the terminal, gives a mod no way to learn which it is
+// (as of Claude Code 2.1.332), so the words take the theme colours by name and Claude Code resolves
+// them: the newest open stretch's in the colour itself, older ones dim in it, and the tinted highlight
+// draws no background, as no deep or pale form of a named colour can be mixed.
 const BASE: Record<'dark' | 'light', readonly [Rgb, Rgb, Rgb, Rgb]> = {
   dark: [[255, 193, 7], [175, 135, 255], [72, 150, 140], [215, 119, 87]],
   light: [[150, 108, 30], [135, 0, 255], [0, 102, 102], [215, 119, 87]],
@@ -61,6 +65,10 @@ const paletteOf = (base: readonly Rgb[], text: Rgb, background: Rgb) =>
     return { soft: hex(soft), faded: hex(mix(soft, background, 0.35)), highlight: hex(mix(rgb, background, 0.75)) }
   })
 const PALETTES = { dark: paletteOf(BASE.dark, WHITE, BLACK), light: paletteOf(BASE.light, BLACK, WHITE) }
+const THEME_KEYS = ['warning', 'autoAccept', 'planMode', 'claude'] as const
+/** The theme colours by name, for a theme known as neither light nor dark. */
+const NAMED_PALETTE = THEME_KEYS.map(key => ({ soft: key, faded: key, isDim: true as const }))
+type Palette = readonly { soft: string; faded: string; isDim?: true }[]
 /** How many colours stretches take in turn. */
 const HUES = BASE.dark.length
 /** `count`, or the next count when `count` would give the colour of the stretch holding it, whose count is `parent`. */
@@ -543,10 +551,12 @@ export const register: Register = (on, options) => {
       const look = storedLook(picked) ?? baseLook
       const isTinted = look.highlight === TINTED
       // The theme matters only once a stretch in this reply is drawn in its colour: open, or with the tinted highlight.
-      const isLight =
-        (isTinted || Object.keys(order).length > 0) &&
-        (await $.config.list().catch(() => [])).some(row => row.key === 'theme' && String(row.value).startsWith('light'))
-      const palette = isLight ? PALETTES.light : PALETTES.dark
+      const theme =
+        isTinted || Object.keys(order).length > 0
+          ? (await $.config.list().catch(() => [])).find(row => row.key === 'theme')?.value
+          : undefined
+      const themeName = theme === undefined ? 'dark' : String(theme)
+      const palette = themeName.startsWith('light') ? PALETTES.light : themeName.startsWith('dark') ? PALETTES.dark : undefined
       const paragraphs = paragraphsOf(text).map((paragraph, i) => ({ ...paragraph, key: `paragraph-${i}`, member: `${e.requestId}#paragraph-${i}` }))
       const holding = paragraphs.filter(p => p.hasStretch)
       const places = isTinted ? placesOf(holding) : undefined
@@ -559,7 +569,7 @@ export const register: Register = (on, options) => {
           if (!hasStretch) return <Markdown text={text} />
           const [open, ask] = await Promise.all([read($, memberOf(openStretches, { requestId: member })), read($, memberOf(askedStretch, { requestId: member }))])
           const placed = places?.get(key)
-          const tints = tintsOf(order, key, newest === e.requestId ? count - 1 : -1, palette, placed)
+          const tints = tintsOf(order, key, newest === e.requestId ? count - 1 : -1, palette ?? NAMED_PALETTE, placed)
           const keys = Object.fromEntries((shown?.targets ?? []).filter(one => one.member === member).map(one => [one.key, one.letter]))
           const props: ReplyProps = {
             text,
@@ -568,7 +578,7 @@ export const register: Register = (on, options) => {
             ask,
             letters: shown === null ? null : { action: shown.action, keys },
             look: drawnLook,
-            highlights: placed === undefined ? {} : highlightsOf(placed, palette),
+            highlights: placed === undefined || palette === undefined ? {} : highlightsOf(placed, palette),
             motion,
           }
           return <Client key={key} module="./reply.tsx" props={props} width="100%" />
@@ -719,7 +729,7 @@ function tintsOf(
   order: Record<string, number>,
   paragraph: string,
   newest: number,
-  palette: { soft: string; faded: string }[],
+  palette: Palette,
   places?: ReadonlyMap<string, number>,
 ): Record<string, Tint> {
   const here = `${paragraph}#`
@@ -731,7 +741,9 @@ function tintsOf(
         // Under the tinted highlight a stretch with no place has no colour to keep, so none is made up.
         const place = places === undefined ? n : places.get(key)
         const colours = place === undefined ? undefined : colourAt(palette, place)
-        return colours === undefined ? [] : [[key, { words: n === newest ? colours.soft : colours.faded, closer: colours.soft }]]
+        if (colours === undefined) return []
+        const isFaded = n !== newest
+        return [[key, { words: isFaded ? colours.faded : colours.soft, closer: colours.soft, ...(isFaded && colours.isDim && { isDim: true as const }) }]]
       }),
   )
 }

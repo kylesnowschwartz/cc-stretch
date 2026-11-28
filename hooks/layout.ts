@@ -51,6 +51,8 @@ const END = '\ufdd2'
 const PHRASE_MARK = /[\ufdd0-\ufdd2]/
 const TINT = '\ufdd3'
 const TINT_END = '\ufdd4'
+// Before a tint's colour, it marks the words as drawn dim in that colour.
+const DIM_TINT = '\ufdd5'
 
 // A mark drawn on the letter before it, or a character no terminal draws, takes no cell.
 const ZERO_WIDTH = /[\p{Mn}\p{Me}\p{Default_Ignorable_Code_Point}]/u
@@ -80,9 +82,9 @@ export const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/
 /** A line's text without its tint marks, and the tint of each character left. */
 type Line = { text: string; tints: (string | undefined)[] }
 
-/** `word` drawn in `colour`. */
-export function tint(colour: string, word: string): string {
-  return `${TINT}${colour}${SEP}${word}${TINT_END}`
+/** `word` drawn in `colour`, dim when `isDim`. */
+export function tint(colour: string, word: string, isDim = false): string {
+  return `${TINT}${isDim ? DIM_TINT : ''}${colour}${SEP}${word}${TINT_END}`
 }
 
 /** Whether a word is markdown syntax rather than text: a bullet, a list number, a rule, a fence, a pipe, a heading mark. */
@@ -570,11 +572,14 @@ function inline(text: string, tints: Line['tints'], isBold = false): Run[] {
   // `chunk` starts at character `at`, and takes its tint.
   const emit = (chunk: string, at: number, extra: Omit<Run, 'text'> = {}) => {
     if (chunk === '') return
-    const tint = tints[at]
+    const marked = tints[at]
+    const isDim = marked?.startsWith(DIM_TINT) === true
+    const tint = isDim ? marked?.slice(DIM_TINT.length) : marked
     const run: Run = {
       text: chunk,
       ...(bold && { bold: true }),
       ...(italic && { italic: true }),
+      ...(isDim && { dim: true }),
       ...(tint && { tint }),
       ...(pressable && { link: pressable }),
       ...extra,

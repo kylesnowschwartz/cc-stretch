@@ -17,9 +17,10 @@ import type { Segment, Stretch } from './parse'
 
 /**
  * The colours of an open stretch: of the words it added (faded unless it is the newest) and of its
- * closer, which never fades, as a faded closer reads as disabled.
+ * closer, which never fades, as a faded closer reads as disabled. `isDim` draws the words dim in
+ * their colour, for a colour that cannot be faded.
  */
-export type Tint = { words: string; closer: string }
+export type Tint = { words: string; closer: string; isDim?: true }
 
 /** A stretch the reader asked to open or close from the keyboard, numbered so each ask acts once. */
 type Ask = { key: string; action: Action; n: number }
@@ -188,7 +189,7 @@ function compose(segments: Segment[], state: State, tints: ReadonlyMap<string, T
     // A short form over several lines is drawn open, or as written when its long form is empty.
     if (!isLinkable(stretch)) return stretch.long.length === 0 ? stretch.short : write(stretch.long)
     const colours = tints.get(stretch.key)
-    const paint = (word: string) => (colours === undefined || isMarkup(word) ? word : tint(colours.words, word))
+    const paint = (word: string) => (colours === undefined || isMarkup(word) ? word : tint(colours.words, word, colours.isDim))
     if (state.growth?.key === stretch.key) return grow(stretch.short, stretch.long, easeInOut(state.growth.progress), draw, paint)
     if (!state.open.includes(stretch.key)) return link('open', stretch.key, stretch.short)
     const closer = link('close', stretch.key, '«')
