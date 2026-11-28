@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.4 — 2026-11-28
+
+- On a Claude Code theme that is neither light nor dark by name, such as `auto`, the words an open
+  stretch adds take Claude Code's own colours, so they read on a light and on a dark terminal. Older
+  open stretches are dim, and the `tinted` highlight draws no background.
+
 ## 0.7.3 — 2026-11-24
 
 - The `bottom-line-stretch` style tells the model to use `AskUserQuestion` when a question is
